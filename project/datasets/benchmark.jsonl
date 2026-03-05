@@ -1,0 +1,2 @@
+{"task_id":"task_1","server_url":"https://mcp.data.gouv.fr/mcp","server_version":"prod","model":"mistral:mistral-medium-latest","prompt":"Trouve 2 jeux de données sur les prix immobiliers en France."}
+{"task_id":"task_2","server_url":"https://mcp.data.gouv.fr/mcp","server_version":"prod","model":"mistral:mistral-medium-latest","prompt":"Cherche un dataset sur l'emploi en France et résume-le."}
