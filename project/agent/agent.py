@@ -1,3 +1,5 @@
+"""A simple agent to run the test prompt."""
+
 from dataclasses import dataclass
 from typing import Any, Dict
 
@@ -17,10 +19,8 @@ async def run_agent(task: Dict[str, Any]) -> AgentResult:
     mcp_server = MCPServerStreamableHTTP(url=task["server_url"])
 
     agent = Agent(
-        model=task["model"],  # e.g. "mistral:mistral-medium-latest"
-        toolsets=[
-            mcp_server
-        ],  # MCP server provided as a toolset :contentReference[oaicite:1]{index=1}
+        model=task["model"],
+        toolsets=[mcp_server],
         system_prompt=task["system_prompt"],
     )
 

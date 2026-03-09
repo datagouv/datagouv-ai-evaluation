@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+import logging
 
 from project.agent.agent import run_agent
 from project.metrics.deterministic import score_deterministic
@@ -22,12 +23,16 @@ def load_dataset():
 
 @pytest.mark.anyio
 async def test_benchmark_suite():
+    
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger()
+    
     tasks = load_dataset()
 
     failures = []
     for task in tasks:
         # helpful debug
-        print(f"RUN {task['task_id']} model={task['model']}")
+        logger.info(f"RUN {task['task_id']} model={task['model']}")
 
         result = await run_agent(task)
         det = score_deterministic(result)
