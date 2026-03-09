@@ -4,11 +4,13 @@ from pathlib import Path
 import pytest
 import logging
 
-from project.agent.agent import run_agent
-from project.metrics.deterministic import score_deterministic
-from project.metrics.judge import score_with_llm_judge
+from mcp_eval.agent.agent import run_agent
+from mcp_eval.metrics.deterministic import score_deterministic
+from mcp_eval.metrics.judge import score_with_llm_judge
 
 DATASET_PATH = Path(__file__).parents[1] / "datasets" / "benchmark.jsonl"
+
+logger = logging.getLogger(__name__)
 
 
 def load_dataset():
@@ -23,10 +25,10 @@ def load_dataset():
 
 @pytest.mark.anyio
 async def test_benchmark_suite():
-    
+
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger()
-    
+
     tasks = load_dataset()
 
     failures = []

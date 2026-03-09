@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from project.agent.agent import AgentResult
+from mcp_eval.agent.agent import AgentResult
 
 
 @dataclass

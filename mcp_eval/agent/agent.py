@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
+from mcp_eval.tracing import setup_tracing
 
 
 @dataclass
@@ -15,6 +16,9 @@ class AgentResult:
     answer: str
 
 
+setup_tracing()
+
+
 async def run_agent(task: Dict[str, Any]) -> AgentResult:
     mcp_server = MCPServerStreamableHTTP(url=task["server_url"])
 
@@ -22,6 +26,7 @@ async def run_agent(task: Dict[str, Any]) -> AgentResult:
         model=task["model"],
         toolsets=[mcp_server],
         system_prompt=task["system_prompt"],
+        instrument=True,  # Activate tracing
     )
 
     # IMPORTANT: ensures MCP + HTTP clients are opened/closed within the test's event loop
