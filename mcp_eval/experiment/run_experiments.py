@@ -6,7 +6,8 @@ from phoenix.client import Client, AsyncClient
 
 from mcp_eval.experiment.run_config import RunConfig
 from mcp_eval.experiment.task import make_task
-from mcp_eval.experiment.evaluators import tool_selection_accuracy
+from mcp_eval.evaluators.tool_selection_match import tool_selection_match
+from mcp_eval.evaluators.tool_invocation_judge import tool_invocation_correctness_judge
 
 CONFIG_PATH = Path(__file__).parents[1] / "datasets" / "config.json"
 
@@ -38,7 +39,7 @@ for _, row in df_run_config.iterrows():
         async_client.experiments.run_experiment(
             dataset=dataset,
             task=task,
-            evaluators=[tool_selection_accuracy],
+            evaluators=[tool_selection_match, tool_invocation_correctness_judge],
             experiment_name=(
                 f"datagouv-mcp-{run_config['mcp_version']}-{run_config['model']}"
             ),
@@ -46,6 +47,7 @@ for _, row in df_run_config.iterrows():
             experiment_metadata={
                 "mcp_version": run_config["mcp_version"],
                 "mcp_server_url": run_config["mcp_server_url"],
+                "mcp_tools": run_config["mcp_tools_description"],
                 "model": run_config["model"],
                 "system_prompt": run_config["system_prompt"],
             },

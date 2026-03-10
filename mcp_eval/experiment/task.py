@@ -63,6 +63,7 @@ class AgentResult:
     model: str
     answer: str
     actual_tool_calls: list[dict[str, Any]]
+    available_tools: str
 
 
 async def run_agent(task: dict[str, Any]) -> AgentResult:
@@ -85,6 +86,7 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
         model=task["model"],
         answer=run_result.output,
         actual_tool_calls=actual_tool_calls,
+        available_tools=task["mcp_tools_description"],
     )
 
 
@@ -92,6 +94,10 @@ def make_task(run_config: dict[str, Any]):
     async def task(input):
         task = input | run_config
         result = await run_agent(task)
-        return {"answer": result.answer, "actual_tool_calls": result.actual_tool_calls}
+        return {
+            "answer": result.answer,
+            "actual_tool_calls": result.actual_tool_calls,
+            "available_tools": result.available_tools,
+        }
 
     return task

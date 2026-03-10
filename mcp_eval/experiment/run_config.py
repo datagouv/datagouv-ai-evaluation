@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import pandas as pd
 from typing import Literal
+from mcp_eval.experiment.mcp_tools_getter import get_mcp_tools
 
 
 @dataclass
@@ -18,6 +19,9 @@ class RunConfig:
     @property
     def config(self) -> pd.DataFrame:
         df_servers = pd.DataFrame(self.mcp_versions)
+        df_servers["mcp_tools_description"] = df_servers["mcp_server_url"].map(
+            lambda x: get_mcp_tools(x)
+        )
         df_models = pd.DataFrame({"model": self.models})
         df_prompts = pd.DataFrame({"system_prompt": self.system_prompts})
         return df_servers.merge(df_models, how="cross").merge(df_prompts, how="cross")
