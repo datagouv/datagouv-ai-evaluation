@@ -5,10 +5,9 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-# Example judge backend: OpenAI (swap provider later if you want)
 from openai import AsyncOpenAI
 
-from mcp_eval.agent.agent import AgentResult
+from mcp_eval.experiment.task import AgentResult
 
 
 class JudgeScore(BaseModel):

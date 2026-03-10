@@ -1,0 +1,2 @@
+{"prompt":"Trouve 2 jeux de données sur les prix immobiliers en France.", "expected_tool_calls":[{"name":"search_datasets", "arguments":{"query":"prix immobiliers en France"}}]}
+{"prompt":"Cherche un dataset sur l'emploi en France et résume-le.", "expected_tool_calls":[{"name":"search_datasets", "arguments":{"query":"emploi en France"}}]}
