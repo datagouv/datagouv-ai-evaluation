@@ -22,11 +22,15 @@ Many questions that can be answered through rigorous evaluations.
 - better understand the agentic usage of the MCP and possibly extend the MPC offer (for now tools only - later, maybe add prompts, ressources...) 
 - compare version of the MCP to improve it
 - ensure the MCP performance doesn't regress when pushing new versions : integration in the CI/CD some eval checks
-- while it's just the beginning of our MCP journey, the buzz around and possible future usage, it's better to demonstrate its robustness and what we do about it
+- while it's just the beginning of our MCP journey, because of the buzz around it and the possible future usage, it's better to demonstrate its robustness and what we do about it
 
-The evaluations should be run :
-- through multiple models and providers : we can select top 3 + some from Albert API as users of the AI assistant might be power users
-- 
+To ensure both result robustness while being efficient, the evaluations should be run in priority :
+- over a selection of models and providers : we can select top 3 + some from Albert API as users of the AI assistant might be power users
+- over prompts based on the queries from the top X of the queries in the search from data gouv AND from identified users use cases
+- test different levels of complexity
+- test the different tools
+
+Metrics should not only include performance metrics like tool selection and invocation correctness, but also token cost, latency, etc.
 
 ### Platforms benchmark
 
@@ -35,3 +39,4 @@ The evaluations should be run :
 - **Opik**. Less popular as newcomer, but promising. Open source UI integrated. To test !
 - **MLFlow**. Not an LLM-native framework, comes from classic ML, but might be robust and provide both an integration to other framework like DeepEval/Phoenix, AND a UI for them !
 - many others exist but hard to benchmark all 
+
