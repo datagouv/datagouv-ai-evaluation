@@ -1,10 +1,17 @@
 from dataclasses import dataclass
 from typing import Any
+import logging
+
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelResponse, ToolReturnPart, ToolCallPart
 
 from mcp_eval.tracing import setup_tracing
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 
 setup_tracing()
 
@@ -67,13 +74,17 @@ class AgentResult:
 
 
 async def run_agent(task: dict[str, Any]) -> AgentResult:
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"MCP Server URL : {task['mcp_server_url']}")
     mcp_server = MCPServerStreamableHTTP(url=task["mcp_server_url"])
 
     agent = Agent(
+        name=f"{task['model']}-{task['mcp_server_url']}",
         model=task["model"],
         toolsets=[mcp_server],
         system_prompt=task["system_prompt"],
-        instrument=True,
+        # instrument=True,
     )
 
     async with agent:

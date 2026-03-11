@@ -16,15 +16,21 @@ class RunConfig:
     models: list[Literal["mistral:mistral-medium-latest"]]
     system_prompts: list[str]
 
-    @property
-    def config(self) -> pd.DataFrame:
-        df_servers = pd.DataFrame(self.mcp_versions)
-        df_servers["mcp_tools_description"] = df_servers["mcp_server_url"].map(
-            lambda x: get_mcp_tools(x)
-        )
-        df_models = pd.DataFrame({"model": self.models})
-        df_prompts = pd.DataFrame({"system_prompt": self.system_prompts})
-        return df_servers.merge(df_models, how="cross").merge(df_prompts, how="cross")
+
+async def build_run_config_df(run_config: RunConfig) -> pd.DataFrame:
+    df_servers = pd.DataFrame(run_config.mcp_versions)
+
+    tool_descriptions = []
+    for url in df_servers["mcp_server_url"]:
+        tools = await get_mcp_tools(url)
+        tool_descriptions.append(tools)
+
+    df_servers["mcp_tools_description"] = tool_descriptions
+
+    df_models = pd.DataFrame({"model": run_config.models})
+    df_prompts = pd.DataFrame({"system_prompt": run_config.system_prompts})
+
+    return df_servers.merge(df_models, how="cross").merge(df_prompts, how="cross")
 
 
 mcp_versions = [

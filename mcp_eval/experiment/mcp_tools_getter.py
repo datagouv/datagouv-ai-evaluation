@@ -35,6 +35,6 @@ def mcp_tools_to_phoenix_text(tools) -> str:
     return "\n".join(lines).strip()
 
 
-def get_mcp_tools(server_url):
-    tools = asyncio.run(get_remote_tools(server_url))
+async def get_mcp_tools(server_url):
+    tools = await get_remote_tools(server_url)
     return mcp_tools_to_phoenix_text(tools)
