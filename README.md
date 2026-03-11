@@ -1,4 +1,18 @@
-A draft repository to start evaluating AI applications at Data Gouv. 
+A draft repository to start evaluating AI applications at Data Gouv.
+
+## Set up an evaluation platform
+
+To evaluate : 
+- the MCP server
+- later, any AI use case like the LLM integration in the features of the website
+
+### Platforms benchmark
+
+- **Phoenix Arize** (ongoing test). Biggest limitation : not possible to calculate aggregated metrics over a dataset (only per "example" metrics)
+- **DeepEval**. Probably one of the most known. Used by the IAE. Biggest limitation : The open source framework has no self-hosted UI. The free cloud UI is only for one project, two users.
+- **Opik**. Less popular as newcomer, but promising. Open source UI integrated. To test !
+- **MLFlow**. Not an LLM-native framework, comes from classic ML, but might be robust and provide both an integration to other framework like DeepEval/Phoenix, AND a UI for them !
+- many others exist but hard to benchmark all 
 
 ## First evaluation: the MCP server.
 
@@ -31,12 +45,4 @@ To ensure both result robustness while being efficient, the evaluations should b
 - test the different tools
 
 Metrics should not only include performance metrics like tool selection and invocation correctness, but also token cost, latency, etc.
-
-### Platforms benchmark
-
-- **Phoenix Arize** (ongoing test). Biggest limitation : not possible to calculate aggregated metrics over a dataset (only per "example" metrics)
-- **DeepEval**. Probably one of the most known. Used by the IAE. Biggest limitation : The open source framework has no self-hosted UI. The free cloud UI is only for one project, two users.
-- **Opik**. Less popular as newcomer, but promising. Open source UI integrated. To test !
-- **MLFlow**. Not an LLM-native framework, comes from classic ML, but might be robust and provide both an integration to other framework like DeepEval/Phoenix, AND a UI for them !
-- many others exist but hard to benchmark all 
 
