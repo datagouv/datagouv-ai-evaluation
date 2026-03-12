@@ -9,10 +9,10 @@ To evaluate :
 ### Platforms benchmark
 
 - **Phoenix Arize** \[Tested]. Biggest limitation : not possible to calculate aggregated metrics over a dataset (only per "example" metrics)
-- - **MLFlow GenAI**. Not an LLM-native framework, comes from classic ML, but might be robust and provide both an integration to other framework like DeepEval/Phoenix, AND a UI for them. Biggest limitation : because they just started their journey into the GenAI world, many important features still seem to be available only on DataBricks.
+- **MLFlow GenAI**. Not an LLM-native framework, comes from classic ML, but might be robust and provide both an integration to other framework like DeepEval/Phoenix, AND a UI for them. Biggest limitation : because they just started their journey into the GenAI world, many important features still seem to be available only on DataBricks.
 - **DeepEval**. Probably one of the most known. Used by the IAE. Biggest limitation : The open source framework has no self-hosted UI. The free cloud UI is only for one project, two users.
 - **ZenML**. It's a whole platform not only for evaluation but also training. It looks like more of an open-source Dataiku. Biggest limitation: because it covers the whole lifecycle of an ML project and both GenAI + classic ML, it has core concepts to learn, too many features... It seems overkill for our usage.
-- **Opik** (ongoing test). Less popular as newcomer, but promising. Open source UI integrated. They provided many metrics, but also datasets agregated metrics which is much needed. To test !
+- **Opik** \[Next test]. Less popular as newcomer, but promising. Open source UI integrated. They provided many metrics, but also datasets agregated metrics which is much needed. To test !
 - many others exist but hard to benchmark all : RAGAS seems too RAG-oriented, heard that LangFuse were incomplete when it comes to evaluation (best for tracing), ... 
 
 ## First evaluation: the MCP server.
@@ -46,5 +46,6 @@ To ensure both result robustness while being efficient, the evaluations should b
 - test the different tools
 
 Metrics should not only include performance metrics like tool selection and invocation correctness, but also token cost, latency, etc.
+
 
 
