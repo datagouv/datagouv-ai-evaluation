@@ -1,6 +1,7 @@
 import ast
 import json
-from phoenix.evals import create_evaluator
+
+from opik.evaluation.metrics import base_metric, score_result
 
 
 def _parse_expected_tool_calls(value):
@@ -25,22 +26,33 @@ def _dedupe_keep_order(items):
     return deduped
 
 
-@create_evaluator(name="tool_selection_match", kind="code", direction="maximize")
-def tool_selection_match(expected, output):
-    expected_calls = _parse_expected_tool_calls(expected["expected_tool_calls"])
+class ToolSelectionMatch(base_metric.BaseMetric):
+    def __init__(self):
+        super().__init__(name="tool_selection_match")
 
-    expected_tool_names = _dedupe_keep_order(
-        [tool["name"] for tool in expected_calls if "name" in tool]
-    )
-    actual_tool_names = _dedupe_keep_order(
-        [tool["name"] for tool in output.get("actual_tool_calls", []) if "name" in tool]
-    )
+    def score(
+        self,
+        output: dict,
+        expected_output: dict,
+        **kwargs,
+    ) -> score_result.ScoreResult:
+        expected_calls = _parse_expected_tool_calls(
+            expected_output.get("expected_tool_calls", [])
+        )
 
-    if not expected_tool_names:
-        return 1.0
+        expected_tool_names = _dedupe_keep_order(
+            [tool["name"] for tool in expected_calls if "name" in tool]
+        )
+        actual_tool_names = _dedupe_keep_order(
+            [tool["name"] for tool in output.get("actual_tool_calls", []) if "name" in tool]
+        )
 
-    correct_tool_names = [
-        name for name in actual_tool_names if name in expected_tool_names
-    ]
+        if not expected_tool_names:
+            value = 1.0
+            reason = "no expected tools"
+        else:
+            correct = [n for n in actual_tool_names if n in expected_tool_names]
+            value = len(correct) / len(expected_tool_names)
+            reason = f"matched {len(correct)}/{len(expected_tool_names)} expected tools"
 
-    return len(correct_tool_names) / len(expected_tool_names)
+        return score_result.ScoreResult(name=self.name, value=value, reason=reason)

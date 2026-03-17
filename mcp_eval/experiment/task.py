@@ -1,3 +1,5 @@
+import asyncio
+import time
 from dataclasses import dataclass
 from typing import Any
 import logging
@@ -77,7 +79,7 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
 
     logger = logging.getLogger(__name__)
     logger.info(f"MCP Server URL : {task['mcp_server_url']}")
-    mcp_server = MCPServerStreamableHTTP(url=task["mcp_server_url"])
+    mcp_server = MCPServerStreamableHTTP(url=task["mcp_server_url"], timeout=30)
 
     agent = Agent(
         name=f"{task['model']}-{task['mcp_server_url']}",
@@ -101,14 +103,33 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
     )
 
 
+_MAX_RETRIES = 5
+_RETRY_BACKOFF = [10, 30, 60, 90, 120]  # secondes entre tentatives
+
+
 def make_task(run_config: dict[str, Any]):
-    async def task(input):
-        task = input | run_config
-        result = await run_agent(task)
-        return {
-            "answer": result.answer,
-            "actual_tool_calls": result.actual_tool_calls,
-            "available_tools": result.available_tools,
-        }
+    logger = logging.getLogger(__name__)
+
+    def task(dataset_item: dict) -> dict:
+        # Opik DatasetItem shape: {"input": {...}, "expected_output": {...}, "metadata": {...}}
+        # evaluate() runs tasks in a ThreadPoolExecutor — asyncio.run() creates a fresh loop per thread
+        task_data = dataset_item["input"] | run_config
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                result = asyncio.run(run_agent(task_data))
+                return {
+                    "output": {
+                        "answer": result.answer,
+                        "actual_tool_calls": result.actual_tool_calls,
+                        "available_tools": result.available_tools,
+                    }
+                }
+            except Exception as exc:
+                last_exc = exc
+                wait = _RETRY_BACKOFF[attempt]
+                logger.warning(f"Task attempt {attempt + 1}/{_MAX_RETRIES} failed ({exc}), retrying in {wait}s")
+                time.sleep(wait)
+        raise last_exc
 
     return task

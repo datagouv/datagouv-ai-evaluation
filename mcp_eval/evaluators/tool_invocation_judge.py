@@ -1,18 +1,22 @@
 import ast
 import json
+import os
 from typing import Any
 
-from phoenix.evals import LLM, create_evaluator
-from phoenix.evals.metrics import ToolInvocationEvaluator
 from dotenv import load_dotenv
+from openai import OpenAI
+from opik.evaluation.metrics import base_metric, score_result
 
-load_dotenv()
+load_dotenv(override=True)
 
-# ----------------------------
-# 1) Judge model for Phoenix's built-in evaluator
-# ----------------------------
-judge_llm = LLM(provider="openai", model="gpt-5-mini")
-tool_invocation_judge = ToolInvocationEvaluator(llm=judge_llm)
+_SYSTEM_PROMPT = """\
+You are an expert evaluator for AI tool usage. Given a user query, a list of \
+available tools, and the tools that were actually called, decide whether the \
+tool invocation is correct.
+
+Respond with JSON in exactly this format:
+{"score": <1 or 0>, "label": "<correct|incorrect>", "explanation": "<one sentence>"}
+"""
 
 
 def _parse_maybe_literal(value: Any):
@@ -55,7 +59,6 @@ def format_tool_calls_human_readable(tool_calls: Any) -> str:
         if isinstance(args, dict):
             rendered_args = ", ".join(f"{k}={_python_repr(v)}" for k, v in args.items())
         elif isinstance(args, str):
-            # Fallback when args is just a raw string
             rendered_args = _python_repr(args)
         elif args is None:
             rendered_args = ""
@@ -67,27 +70,37 @@ def format_tool_calls_human_readable(tool_calls: Any) -> str:
     return "\n".join(lines)
 
 
-@create_evaluator(
-    name="tool_invocation_correctness_judge", kind="llm", direction="maximize"
-)
-def tool_invocation_correctness_judge(input, output):
-    """
-    Assumes:
-      - input is the original prompt string
-      - output contains output["actual_tool_calls"]
-    """
-    eval_input = {
-        "input": input["prompt"],
-        "available_tools": output["available_tools"],
-        "tool_selection": format_tool_calls_human_readable(output["actual_tool_calls"]),
-    }
+class ToolInvocationCorrectnessJudge(base_metric.BaseMetric):
+    def __init__(self):
+        super().__init__(name="tool_invocation_correctness_judge")
+        self._client = OpenAI()
+        self._model = os.getenv("JUDGE_MODEL", "gpt-4o-mini")
 
-    # Phoenix returns a list of Score objects; for a single example take the first.
-    score = tool_invocation_judge.evaluate(eval_input)[0]
+    def score(
+        self,
+        input: dict,
+        output: dict,
+        **kwargs,
+    ) -> score_result.ScoreResult:
+        user_message = (
+            f"User query: {input['prompt']}\n\n"
+            f"Available tools:\n{output['available_tools']}\n\n"
+            f"Tool calls made:\n{format_tool_calls_human_readable(output['actual_tool_calls'])}"
+        )
 
-    # Returning a dict is convenient for Phoenix experiments UI.
-    return {
-        "score": score.score,  # 1.0 or 0.0
-        "label": score.label,  # "correct" / "incorrect"
-        "explanation": score.explanation,
-    }
+        response = self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            response_format={"type": "json_object"},
+        )
+
+        raw = json.loads(response.choices[0].message.content)
+
+        return score_result.ScoreResult(
+            name=self.name,
+            value=float(raw.get("score", 0)),
+            reason=f"{raw.get('label', '')}: {raw.get('explanation', '')}",
+        )
