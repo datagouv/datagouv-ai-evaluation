@@ -8,14 +8,10 @@ from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelResponse, ToolReturnPart, ToolCallPart
 
-from mcp_eval.tracing import setup_tracing
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
-
-setup_tracing()
 
 
 def _normalize_tool_args(part: ToolCallPart) -> Any:
