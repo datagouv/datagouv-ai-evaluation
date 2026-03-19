@@ -69,6 +69,7 @@ class AgentResult:
     answer: str
     actual_tool_calls: list[dict[str, Any]]
     available_tools: str
+    available_tool_names: list[str]
 
 
 async def run_agent(task: dict[str, Any]) -> AgentResult:
@@ -96,6 +97,7 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
         answer=run_result.output,
         actual_tool_calls=actual_tool_calls,
         available_tools=task["mcp_tools_description"],
+        available_tool_names=task.get("mcp_tool_names", []),
     )
 
 
@@ -119,6 +121,7 @@ def make_task(run_config: dict[str, Any]):
                         "answer": result.answer,
                         "actual_tool_calls": result.actual_tool_calls,
                         "available_tools": result.available_tools,
+                        "available_tool_names": result.available_tool_names,
                     }
                 }
             except Exception as exc:
@@ -126,6 +129,14 @@ def make_task(run_config: dict[str, Any]):
                 wait = _RETRY_BACKOFF[attempt]
                 logger.warning(f"Task attempt {attempt + 1}/{_MAX_RETRIES} failed ({exc}), retrying in {wait}s")
                 time.sleep(wait)
-        raise last_exc
+        logger.error(f"Task failed after {_MAX_RETRIES} attempts, returning empty result: {last_exc}")
+        return {
+            "output": {
+                "answer": "",
+                "actual_tool_calls": [],
+                "available_tools": task_data.get("mcp_tools_description", ""),
+                "available_tool_names": task_data.get("mcp_tool_names", []),
+            }
+        }
 
     return task

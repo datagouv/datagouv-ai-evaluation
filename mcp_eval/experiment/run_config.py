@@ -20,12 +20,14 @@ class RunConfig:
 async def build_run_config_df(run_config: RunConfig) -> pd.DataFrame:
     df_servers = pd.DataFrame(run_config.mcp_versions)
 
-    tool_descriptions = []
+    tool_descriptions, tool_names = [], []
     for url in df_servers["mcp_server_url"]:
-        tools = await get_mcp_tools(url)
-        tool_descriptions.append(tools)
+        description, names = await get_mcp_tools(url)
+        tool_descriptions.append(description)
+        tool_names.append(names)
 
     df_servers["mcp_tools_description"] = tool_descriptions
+    df_servers["mcp_tool_names"] = tool_names
 
     df_models = pd.DataFrame({"model": run_config.models})
     df_prompts = pd.DataFrame({"system_prompt": run_config.system_prompts})

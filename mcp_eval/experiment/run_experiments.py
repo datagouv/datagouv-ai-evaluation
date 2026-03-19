@@ -9,8 +9,9 @@ from dotenv import load_dotenv
 
 from mcp_eval.experiment.run_config import RunConfig, build_run_config_df
 from mcp_eval.experiment.task import make_task
-from mcp_eval.evaluators.tool_selection_match import ToolSelectionMatch
+from mcp_eval.evaluators.tool_selection_match import ToolSelectionMetrics
 from mcp_eval.evaluators.tool_invocation_judge import ToolInvocationCorrectnessJudge
+from mcp_eval.evaluators.experiment_metrics import compute_micro_tool_metrics
 
 load_dotenv(override=True)
 
@@ -44,7 +45,8 @@ def main():
             task_threads=1,
             dataset=dataset,
             task=task,
-            scoring_metrics=[ToolSelectionMatch(), ToolInvocationCorrectnessJudge()],
+            scoring_metrics=[ToolSelectionMetrics(), ToolInvocationCorrectnessJudge()],
+            experiment_scoring_functions=[compute_micro_tool_metrics],
             experiment_name=f"datagouv-mcp-{run_config['mcp_version']}-{run_config['model']}",
             experiment_config={
                 "mcp_version": run_config["mcp_version"],

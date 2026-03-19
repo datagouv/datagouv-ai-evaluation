@@ -14,6 +14,10 @@ You are an expert evaluator for AI tool usage. Given a user query, a list of \
 available tools, and the tools that were actually called, decide whether the \
 tool invocation is correct.
 
+If no tool was needed and :
+a. no tool was called, then the score is 1
+b. a tool or more were called, even if its invocation is correct, the score is 0 
+
 Respond with JSON in exactly this format:
 {"score": <1 or 0>, "label": "<correct|incorrect>", "explanation": "<one sentence>"}
 """
