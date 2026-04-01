@@ -1,3 +1,5 @@
+import asyncio
+import time
 from dataclasses import dataclass
 from typing import Any
 import logging
@@ -6,14 +8,10 @@ from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelResponse, ToolReturnPart, ToolCallPart
 
-from mcp_eval.tracing import setup_tracing
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
-
-setup_tracing()
 
 
 def _normalize_tool_args(part: ToolCallPart) -> Any:
@@ -71,13 +69,14 @@ class AgentResult:
     answer: str
     actual_tool_calls: list[dict[str, Any]]
     available_tools: str
+    available_tool_names: list[str]
 
 
 async def run_agent(task: dict[str, Any]) -> AgentResult:
 
     logger = logging.getLogger(__name__)
     logger.info(f"MCP Server URL : {task['mcp_server_url']}")
-    mcp_server = MCPServerStreamableHTTP(url=task["mcp_server_url"])
+    mcp_server = MCPServerStreamableHTTP(url=task["mcp_server_url"], timeout=30)
 
     agent = Agent(
         name=f"{task['model']}-{task['mcp_server_url']}",
@@ -98,17 +97,46 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
         answer=run_result.output,
         actual_tool_calls=actual_tool_calls,
         available_tools=task["mcp_tools_description"],
+        available_tool_names=task.get("mcp_tool_names", []),
     )
 
 
+_MAX_RETRIES = 5
+_RETRY_BACKOFF = [10, 30, 60, 90, 120]  # secondes entre tentatives
+
+
 def make_task(run_config: dict[str, Any]):
-    async def task(input):
-        task = input | run_config
-        result = await run_agent(task)
+    logger = logging.getLogger(__name__)
+
+    def task(dataset_item: dict) -> dict:
+        # Opik DatasetItem shape: {"input": {...}, "expected_output": {...}, "metadata": {...}}
+        # evaluate() runs tasks in a ThreadPoolExecutor — asyncio.run() creates a fresh loop per thread
+        task_data = dataset_item["input"] | run_config
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                result = asyncio.run(run_agent(task_data))
+                return {
+                    "output": {
+                        "answer": result.answer,
+                        "actual_tool_calls": result.actual_tool_calls,
+                        "available_tools": result.available_tools,
+                        "available_tool_names": result.available_tool_names,
+                    }
+                }
+            except Exception as exc:
+                last_exc = exc
+                wait = _RETRY_BACKOFF[attempt]
+                logger.warning(f"Task attempt {attempt + 1}/{_MAX_RETRIES} failed ({exc}), retrying in {wait}s")
+                time.sleep(wait)
+        logger.error(f"Task failed after {_MAX_RETRIES} attempts, returning empty result: {last_exc}")
         return {
-            "answer": result.answer,
-            "actual_tool_calls": result.actual_tool_calls,
-            "available_tools": result.available_tools,
+            "output": {
+                "answer": "",
+                "actual_tool_calls": [],
+                "available_tools": task_data.get("mcp_tools_description", ""),
+                "available_tool_names": task_data.get("mcp_tool_names", []),
+            }
         }
 
     return task

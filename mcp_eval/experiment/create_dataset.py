@@ -1,28 +1,48 @@
 import json
 import pandas as pd
 from pathlib import Path
-from phoenix.client import Client
+
+import opik
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 EXAMPLE_PATH = Path(__file__).parents[1] / "datasets" / "dataset.jsonl"
 
 
 def read_jsonl(path: Path) -> pd.DataFrame:
-    lines = []
     with open(path) as f:
         lines = f.read().splitlines()
+    return pd.DataFrame([json.loads(line) for line in lines])
 
-    line_dicts = [json.loads(line) for line in lines]
-    return pd.DataFrame(line_dicts)
+
+def build_opik_items(df: pd.DataFrame) -> list[dict]:
+    items = []
+    for _, row in df.iterrows():
+        items.append({
+            "input": {
+                "prompt": row["prompt"],
+            },
+            "expected_output": {
+                "expected_tool_calls": row["expected_tool_calls"],
+            },
+            "metadata": {
+                "tested_tools": row["tested_tools"],
+                "difficulty": row["difficulty"],
+                "turn": row["turn"],
+            },
+        })
+    return items
 
 
 df_examples = read_jsonl(EXAMPLE_PATH)
 
-client = Client(base_url="http://localhost:6006")
+client = opik.Opik()
 
-dataset = client.datasets.create_dataset(
+dataset = client.get_or_create_dataset(
     name="eval_datagouv_mcp",
-    dataframe=df_examples,
-    split_keys=["tested_tools", "difficulty", "turn"],
-    input_keys=["prompt"],
-    output_keys=["expected_tool_calls"],
+    description="MCP benchmark dataset for datagouv evaluation",
 )
+dataset.insert(build_opik_items(df_examples))
+
+print(f"Dataset ready: {dataset.name} ({len(df_examples)} items)")

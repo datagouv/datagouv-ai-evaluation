@@ -10,7 +10,7 @@
         }
     ],
     "models": [
-        "mistral:mistral-medium-latest"
+        "mistral:mistral-small-latest"
     ],
     "system_prompts": [
         "You are a data assistant using an MCP server. Use MCP tools when relevant to retrieve factual information. Provide a final answer to the user."

@@ -1,6 +1,8 @@
 import ast
 import json
-from phoenix.evals import create_evaluator
+import math
+
+from opik.evaluation.metrics import base_metric, score_result
 
 
 def _parse_expected_tool_calls(value):
@@ -25,22 +27,56 @@ def _dedupe_keep_order(items):
     return deduped
 
 
-@create_evaluator(name="tool_selection_match", kind="code", direction="maximize")
-def tool_selection_match(expected, output):
-    expected_calls = _parse_expected_tool_calls(expected["expected_tool_calls"])
+class ToolSelectionMetrics(base_metric.BaseMetric):
+    def __init__(self):
+        super().__init__(name="tool_selection")
 
-    expected_tool_names = _dedupe_keep_order(
-        [tool["name"] for tool in expected_calls if "name" in tool]
-    )
-    actual_tool_names = _dedupe_keep_order(
-        [tool["name"] for tool in output.get("actual_tool_calls", []) if "name" in tool]
-    )
+    def score(
+        self,
+        output: dict,
+        expected_output: dict,
+        **kwargs,
+    ) -> list[score_result.ScoreResult]:
+        expected_calls = _parse_expected_tool_calls(
+            expected_output.get("expected_tool_calls", [])
+        )
 
-    if not expected_tool_names:
-        return 1.0
+        expected = set(
+            _dedupe_keep_order(
+                [t["name"] for t in expected_calls if "name" in t]
+            )
+        )
+        actual = set(
+            _dedupe_keep_order(
+                [t["name"] for t in output.get("actual_tool_calls", []) if "name" in t]
+            )
+        )
+        available = set(output.get("available_tool_names", []))
 
-    correct_tool_names = [
-        name for name in actual_tool_names if name in expected_tool_names
-    ]
+        tp = len(actual & expected)
+        fp = len(actual - expected)
+        fn = len(expected - actual)
+        tn = len(available - expected - actual)
 
-    return len(correct_tool_names) / len(expected_tool_names)
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
+        recall    = tp / (tp + fn) if (tp + fn) > 0 else 1.0
+        f1        = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        jaccard   = tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 1.0
+        total     = tp + tn + fp + fn
+        accuracy  = (tp + tn) / total if total > 0 else 1.0
+
+        mcc_denom = math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+        mcc       = (tp * tn - fp * fn) / mcc_denom if mcc_denom > 0 else 0.0
+
+        return [
+            score_result.ScoreResult(name="tool_precision", value=precision),
+            score_result.ScoreResult(name="tool_recall",    value=recall),
+            score_result.ScoreResult(name="tool_f1",        value=f1),
+            score_result.ScoreResult(name="tool_jaccard",   value=jaccard),
+            score_result.ScoreResult(name="tool_accuracy",  value=accuracy),
+            score_result.ScoreResult(name="tool_mcc",       value=mcc),
+            score_result.ScoreResult(name="tool_tp",        value=float(tp)),
+            score_result.ScoreResult(name="tool_fp",        value=float(fp)),
+            score_result.ScoreResult(name="tool_fn",        value=float(fn)),
+            score_result.ScoreResult(name="tool_tn",        value=float(tn)),
+        ]

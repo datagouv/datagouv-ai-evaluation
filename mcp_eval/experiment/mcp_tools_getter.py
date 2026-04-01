@@ -11,7 +11,11 @@ async def get_remote_tools(server_url: str):
             return tools_result.tools
 
 
-def mcp_tools_to_phoenix_text(tools) -> str:
+def mcp_tools_to_names(tools) -> list[str]:
+    return [tool.name for tool in tools]
+
+
+def mcp_tools_to_text(tools) -> str:
     lines = []
 
     for tool in tools:
@@ -35,6 +39,6 @@ def mcp_tools_to_phoenix_text(tools) -> str:
     return "\n".join(lines).strip()
 
 
-async def get_mcp_tools(server_url):
+async def get_mcp_tools(server_url: str) -> tuple[str, list[str]]:
     tools = await get_remote_tools(server_url)
-    return mcp_tools_to_phoenix_text(tools)
+    return mcp_tools_to_text(tools), mcp_tools_to_names(tools)
