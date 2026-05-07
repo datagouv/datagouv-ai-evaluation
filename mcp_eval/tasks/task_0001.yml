@@ -64,12 +64,10 @@ evaluation_criteria:
           Agent mentions the "FINESS Extraction du Fichier des établissements" dataset
           does not contain details about SEP or neurology services, 
           but only general information about the facilities.
-        required_agent_capabilities: web+code
       - criteria: >
           Agent explains what FHIR query parameters the user would need
           to filter by neurology specialty (e.g. specialty code) and
           points to the relevant endpoint in the API.
-        required_agent_capabilities: web
 
 tool_chain:
   - v_introduced: "1.0"

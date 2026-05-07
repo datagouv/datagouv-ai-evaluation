@@ -1,0 +1,69 @@
+# Metrics
+
+## Task-level metrics
+
+*For now, all metrics are for single-turn evaluation task only.*
+
+To start, we need basic metrics, that will serve as basis to compute more elaborate evaluation metrics like rates and scores.
+
+**Metric type:**
+
+* **Computed** : when the metric can be obtained through computation, ground truth annotation, or from the LLM provider (like token count)
+
+* **LLM-as-a-Judge**: when the metric requires an LLM-as-a-Judge to be computed
+
+### Basic metrics
+
+**Tool usage**
+
+* **Total tool calls** [Computed]: total number of tool calls made by the agent (whether they were correct or not, they returned an error or not)
+
+* **Min. required tool calls&#x20;**[Computed]**:&#x20;**&#x6D;inimum number of tool calls required to complete the task (in the ground truth) - to derive both for the minimal and optimal version
+
+* **Schema compliant tool calls&#x20;**[Computed]*&#x20;***:&#x20;**&#x6E;umber of valid tool calls with correctly structured parameters matching the expected input schema
+
+* **Correct parameters tool calls** [LLM-as-a-Judge] : number of valid tool calls with correctly structured parameters matching the expected input schema AND for which the parameter value either match the strict defined value (ex: an ID) or a similar value (ex: a query that is similary semantically) - counts as many times as a tool is called, as long as the parameters are correct and relevant
+
+* **Called tool matching names** [Computed] : number of unique tools from the ground truth unique tools list that have been used, using exact name matching (basic tool selection)
+
+* **Ground truth tool calls** [LLM-as-a-Judge] : number of required tool calls (only "Correct parameters tool calls") from the ground truth that have been used (contexte-aware tool call)
+
+* **Successful tool calls :&#x20;**&#x6E;umber of tool calls which didn't return an error (whatever, 5** servor, 4**)
+
+**Efficiency**
+
+* **Latency** [Computed]: turn-around-time to complete the task (between the prompt being sent and the full response received)
+
+* **Token usage&#x20;**[Computed]**:** total token used to complete the task
+
+**Result Accuracy**
+
+* **Total validated criteria** [LLM-as-a-Judge]: number of evaluation criteria validated for the task - derived for both minimal and optimal
+
+* **Total criteria** [Computed]:**&#x20;**&#x74;otal existing criteria for the task - derived for both minimal and optimal
+
+**Failure mode**
+
+List all failure mode : failure mode name + explanation per failure mode. Not a score in itself, but let compute failure at the evaluation level.
+
+### Rates/Scores
+
+*For most metrics, unless said otherwise, scores range from [0-1] for comparable results - higher always better for easier interpretation*
+
+* **Schema compliance rate** : **Compliant tool calls / Total tool calls** - Proportion of valid tool calls with correctly structured parameters matching the expected input schema. *(arxiv 2508.20453)*
+
+* **Correct parameters tool call rate : Correct parameters tool calls / Total tool calls** (Parameter match score : Correctness or similarity of parameter values. *(arxiv 2507.12806))*
+
+* **Tool call success rate** **: Successful tool calls / Total tool calls** (the higher the better)
+
+* **Recall tool usage : Ground truth tool calls / Min. required tool calls&#x20;**- (Inclusion -**&#x20;**&#x50;roportion of ground truth tools included in the predicted trajectory. *(arxiv 2510.04550) /&#x20;*&#x54;ask Finish Score (TFS) - Exact match on tool names + params. Order ignored. Weighted by number of tool calls in the golden solution. *(arxiv 2512.24565))*
+
+* **Tool call efficiency :** **Ground truth tool calls / Total tool calls&#x20;**(the higher the better, the lower the more redundant and inefficient)
+
+* **Result Accuracy** **: Total validated criteria / Total criteria&#x20;**- derived for both minimal and optimal
+
+* **Trajectory adherence&#x20;**[LLM-as-a-Judge] : Sequence alignment between predicted and actual tool calls. To be better defined (inspired from: Order match score **-&#x20;**&#x53;equence alignment between predicted and actual tool calls. *(arxiv 2507.12806) /* Trajectory satisfaction (Traj-satisfy) - LLM judge assesses to what extent the predicted trajectory solves the user query. Useful when ground truth is unavailable. *(arxiv 2510.04550))*
+
+* **Token efficiency** : **Result Accuracy / Token usage (?)** (Token efficiency - Score obtained per 1k output tokens consumed. *(arxiv 2512.24565))*
+
+* **Time efficiency** : **Result Accuracy / Latency (?)&#x20;**(Time efficiency - Score obtained per minute of execution time. *(arxiv 2512.24565))*
