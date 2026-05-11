@@ -5,7 +5,6 @@ Calls core/result_accuracy.py via asyncio.run().
 from __future__ import annotations
 
 import asyncio
-import os
 
 from opik.evaluation.metrics import base_metric, score_result
 
@@ -26,9 +25,9 @@ def _criteria_reason(results: list[CriterionResult]) -> str:
 
 
 class ResultAccuracyMetric(base_metric.BaseMetric):
-    def __init__(self, judge_model: str | None = None):
+    def __init__(self, judge_model: str):
         super().__init__(name="result_accuracy")
-        self._judge_model = judge_model or os.environ.get("JUDGE_MODEL", "openai:gpt-4o-mini")
+        self._judge_model = judge_model
 
     def score(
         self,

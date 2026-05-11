@@ -7,7 +7,6 @@ Trajectory is handled separately in TrajectoryAdherenceMetric.
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
 from opik.evaluation.metrics import base_metric, score_result
@@ -50,9 +49,9 @@ def _deserialize_required_tools(raw: list[dict]) -> list[RequiredTool]:
 
 
 class ToolUsageMetric(base_metric.BaseMetric):
-    def __init__(self, judge_model: str | None = None):
+    def __init__(self, judge_model: str):
         super().__init__(name="tool_usage")
-        self._judge_model = judge_model or os.environ.get("JUDGE_MODEL", "openai:gpt-4o-mini")
+        self._judge_model = judge_model
 
     def score(
         self,

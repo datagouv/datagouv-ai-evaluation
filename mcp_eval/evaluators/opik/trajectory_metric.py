@@ -4,7 +4,6 @@ Opik wrapper for trajectory adherence evaluation.
 from __future__ import annotations
 
 import asyncio
-import os
 
 from opik.evaluation.metrics import base_metric, score_result
 
@@ -31,9 +30,9 @@ def _deserialize_level(raw: dict) -> ToolChainLevel:
 
 
 class TrajectoryAdherenceMetric(base_metric.BaseMetric):
-    def __init__(self, judge_model: str | None = None):
+    def __init__(self, judge_model: str):
         super().__init__(name="trajectory_adherence")
-        self._judge_model = judge_model or os.environ.get("JUDGE_MODEL", "openai:gpt-4o-mini")
+        self._judge_model = judge_model
 
     def score(
         self,

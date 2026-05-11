@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -87,8 +88,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run datagouv-ai evaluations")
     parser.add_argument("--evaluation-type", default=None,
                         help="Run only this evaluation type. Omit to run all.")
-    parser.add_argument("--judge-model", default="openai:gpt-4o-mini",
-                        help="Model used for LLM-as-a-judge (default: openai:gpt-4o-mini)")
+    parser.add_argument("--judge-model", default=None,
+                        help="Model used for LLM-as-a-judge. Falls back to JUDGE_MODEL env var. Required.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Build configs and validate tasks, but do not run agents.")
     parser.add_argument("--no-validate", action="store_true",
@@ -98,6 +99,16 @@ def main() -> None:
     args = parser.parse_args()
 
     load_dotenv(override=True)
+
+    judge_model = args.judge_model or os.environ.get("JUDGE_MODEL")
+    if not judge_model:
+        logger.error(
+            "No judge model specified. Pass --judge-model or set JUDGE_MODEL in your .env."
+        )
+        sys.exit(1)
+    args.judge_model = judge_model
+    logger.info("Judge model: %s", judge_model)
+
     setup_tracing()
 
     # ── Load active tasks ─────────────────────────────────────────────────────
