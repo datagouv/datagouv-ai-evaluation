@@ -1,44 +1,65 @@
-from dataclasses import dataclass
-import pandas as pd
-from typing import Literal
+"""
+Builds flat run_config dicts from RunConfiguration objects.
+Fetches MCP tools once per unique server URL (deduplicates network calls).
+"""
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+from mcp_eval.benchmark.loader import RunConfiguration
 from mcp_eval.experiment.mcp_tools_getter import get_mcp_tools
 
 
-@dataclass
-class MCPVersion:
-    mcp_version: str
-    mcp_server_url: str
+async def _fetch_tools_by_url(urls: list[str]) -> dict[str, tuple[str, list[str], list[dict]]]:
+    """Fetch MCP tools for all unique server URLs concurrently."""
+    unique_urls = list(dict.fromkeys(u for u in urls if u))  # preserve order, dedup
+
+    async def _fetch(url: str):
+        return url, await get_mcp_tools(url)
+
+    results = await asyncio.gather(*[_fetch(url) for url in unique_urls], return_exceptions=True)
+
+    tools_by_url: dict[str, tuple[str, list[str], list[dict]]] = {}
+    for res in results:
+        if isinstance(res, Exception):
+            continue
+        url, tool_data = res
+        tools_by_url[url] = tool_data
+
+    return tools_by_url
 
 
-@dataclass
-class RunConfig:
-    mcp_versions: list[MCPVersion]
-    models: list[Literal["mistral:mistral-medium-latest"]]
-    system_prompts: list[str]
+async def build_all_run_configs(
+    run_configurations: list[RunConfiguration],
+) -> list[dict[str, Any]]:
+    """
+    Convert RunConfiguration objects to flat dicts ready for make_task().
+    MCP tools are fetched once per unique server URL.
+    """
+    urls = [rc.mcp_server_url for rc in run_configurations if rc.mcp_server_url]
+    tools_by_url = await _fetch_tools_by_url(urls)
 
+    run_configs: list[dict[str, Any]] = []
+    for rc in run_configurations:
+        url = rc.mcp_server_url
+        if url and url in tools_by_url:
+            description, names, schema = tools_by_url[url]
+        else:
+            description, names, schema = "", [], []
 
-async def build_run_config_df(run_config: RunConfig) -> pd.DataFrame:
-    df_servers = pd.DataFrame(run_config.mcp_versions)
+        run_configs.append({
+            "evaluation_type": rc.evaluation_type,
+            "capabilities": rc.capabilities,
+            "mcp_version": rc.mcp_version,
+            "mcp_server_url": url,
+            "model": rc.model,
+            "system_prompt_name": rc.system_prompt_name,
+            "system_prompt": rc.system_prompt,
+            "metrics": rc.metrics,
+            "mcp_tools_description": description,
+            "mcp_tool_names": names,
+            "mcp_tools_schema": schema,
+        })
 
-    tool_descriptions, tool_names = [], []
-    for url in df_servers["mcp_server_url"]:
-        description, names = await get_mcp_tools(url)
-        tool_descriptions.append(description)
-        tool_names.append(names)
-
-    df_servers["mcp_tools_description"] = tool_descriptions
-    df_servers["mcp_tool_names"] = tool_names
-
-    df_models = pd.DataFrame({"model": run_config.models})
-    df_prompts = pd.DataFrame({"system_prompt": run_config.system_prompts})
-
-    return df_servers.merge(df_models, how="cross").merge(df_prompts, how="cross")
-
-
-mcp_versions = [
-    MCPVersion(**{"mcp_version": "1", "mcp_server_url": "https://mcp.data.gouv.fr/mcp"})
-]
-models = ["mistral:mistral-medium-latest"]
-system_prompts = [
-    "You are a data assistant using an MCP server. Use MCP tools when relevant to retrieve factual information. Provide a final answer to the user."
-]
+    return run_configs

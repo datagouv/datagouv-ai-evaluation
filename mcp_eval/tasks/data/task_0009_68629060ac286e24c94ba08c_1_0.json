@@ -1,0 +1,4 @@
+{
+  "title": "API Certif Info",
+  "description": "Cette API permet d'accéder aux données de Certif Info, un référentiel national des certifications.\n\nRiche de ses 18 ans d’existence, il documente aujourd’hui des certifications/formations prépa non certifiante/habilitations actives. Il couvre les certifications inscrites ou non aux répertoires gérés par France compétences (Répertoire national des certifications professionnelles et Répertoire spécifique). Il dispose d’un niveau de granularité qui permet de décrire les certifications en parcours et spécialités.\n\nCertif Info fait le lien avec les principaux référentiels du champ EFOP : RCNP, RS, Codes diplôme, Sise, IDEO… Il indexe également les certifications en Formacode®, ROME, NSF…\n"
+}

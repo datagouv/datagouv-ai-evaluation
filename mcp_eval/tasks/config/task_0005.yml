@@ -1,0 +1,149 @@
+# ─────────────────────────────────────────────
+# TASK 05
+# ─────────────────────────────────────────────
+
+task_id: task_0005
+task_name: Établissements d'activité physique et sportive dans le Gers
+
+meta:
+  status: active
+  source: interview
+  turn: single
+  minimal_tool_invocation_type: multi_tool
+  optimal_tool_invocation_type: multi_tool
+
+prompt: >
+  Je souhaite trouver la base de données des entreprises du Gers pour identifier
+  tous les établissements d'activité physique et sportive
+  (mission de contrôle, protection du public). Trouve la liste.
+
+draft_answer: >
+  Explorer séquentiellement : dataset Occitanie (67450fea), dataset base nationale sports
+  (53699ebb, seul tabular-accessible), dataset SIRENE (5b7ffc61). APIs : 672cf66f, 672cf684.
+  Filtrer dep_code=32 → 1 023 établissements au 30/04/2026. Vérifier date MàJ ressource.
+
+evaluation_criteria:
+  - v_introduced: "1.0"
+    minimal:
+      - criteria: >
+          Agent identifies the dataset "Recensement des équipements sportifs, espaces et sites de pratiques".
+      - criteria: >
+          Agent identifies the dataset "Equipements sportifs et lieux de pratiques en région Occitanie".
+      - criteria: > 
+          Agent identifies the API "API Data ES".
+      - criteria: >
+          Agent identifies the dataset "Base Sirene des entreprises et de leurs établissements (SIREN, SIRET)"
+          or the equivalent API "API Sirene open data" as an alternative, but not specific about sports establishments.
+    optimal:
+      - criteria: >
+          Agent explains why "Recensement des équipements sportifs, espaces et sites de pratiques"
+          is the best choice because it is readily queriable and focused on the topic.
+      - criteria: >
+          Agent explains that the API "API Data ES" would be the right alternative for a programmatic access path.
+      - criteria: >
+          Agent explains the dataset "Equipements sportifs et lieux de pratiques en région Occitanie" requires
+          to download the file to explore it (not accessible via Tabular API)
+      - criteria: >
+          Agent explains that "Base Sirene des entreprises et de leurs établissements (SIREN, SIRET)"
+          requires filtering on code NAF and the file requires more work to parse (zip).
+      - criteria: >
+          Agent explains that "API Sirene open data" requires to better understand the documentation
+          to filter on NAF which is less straightforward.
+      - criteria: >
+          Agent queries "Recensement des équipements sportifs, espaces et sites de pratiques"
+          filtered to the Gers department (dep_code=32 or equivalent).
+      - criteria: >
+          Agent returns approximately 1 023 establishments for dep_code=32.
+      - criteria: >
+          Agent verifies and reports the last update date of the queried resource.
+
+
+tool_chain:
+  - v_introduced: "1.0"
+    minimal:
+      chain: >
+        (search_datasets > get_dataset_info)
+        + (search_dataservices > get_dataservice_info)
+      required_tools:
+        - name: search_datasets
+          args:
+            - name: query
+              criteria: >
+                Semantically relevant to sports establishments registry.
+                e.g. "établissements sportifs", "activité physique sportive"
+        - name: search_datasets
+          args:
+            - name: query
+              criteria: >
+                Semantically relevant to broader establishments registry "SIRENE"
+        - name: get_dataset_info
+          args:
+            - name: dataset_id
+              strict_value: "53699ebba3a729239d205f4f"  # base nationale sports (tabular)
+        - name: get_dataset_info
+          args:
+            - name: dataset_id
+              strict_value: "5b7ffc618b4c4169d30727e0"  # SIRENE
+        - name: get_dataset_info
+          args:
+            - name: dataset_id
+              strict_value: "67450feab4e83dc75f7733d4"  # Occitanie
+        - name: search_dataservices
+          args:
+            - name: query
+              criteria: >
+                Semantically relevant to broader establishments registry "SIRENE"
+        - name: search_dataservices
+          args:
+            - name: query
+              criteria: >
+                Semantically relevant to sports establishments registry.
+                e.g. "établissements sportifs", "activité physique sportive"
+        - name: get_dataservice_info
+          args:
+            - name: dataservice_id
+              strict_value: "672cf66f5e554cca4a916026" # API Data ES
+        - name: get_dataservice_info
+          args:
+            - name: dataservice_id
+              strict_value: "6661e60fda535e9773c510ca" # SIRENE
+
+
+    optimal:
+      chain: >
+        ((search_datasets > get_dataset_info > list_dataset_resources > get_resource_info) > query_resource_data))
+        + (search_dataservices > get_dataservice_info)
+      required_tools:
+        - name: list_dataset_resources
+          args:
+            - name: dataset_id
+              strict_value: "53699ebba3a729239d205f4f"
+        - name: query_resource_data
+          args:
+            - name: resource_id
+              strict_value: "ea4f5879-af40-4e3e-949d-812d6eeb5e02"
+            - name: filters
+              criteria: Filter on department column for Gers (dep_code=32 or equivalent)
+
+resources:
+  - type: dataset
+    id: "53699ebba3a729239d205f4f"  # Recensement des équipements sportifs, espaces et sites de pratiques
+    checks:
+      - fn: same_title_description
+        params: {id: ~}
+  - type: resource
+    dataset_id: "53699ebba3a729239d205f4f" 
+    id: "ea4f5879-af40-4e3e-949d-812d6eeb5e02"
+    checks:
+      - fn: tabular_api_available
+        params: {}
+  - type: dataservice
+    id: "672cf66f5e554cca4a916026"
+    checks:
+      - fn: same_title_description
+        params: {id: ~}
+  - type: dataservice
+    id: "672cf684c3488a0c533f7094"
+    checks:
+      - fn: same_title_description
+        params: {id: ~}

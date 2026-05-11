@@ -1,9 +1,0 @@
-providers:
-  - mistral:
-    - models:
-      - name: "mistral-small-latest"
-        tags: ["small", "open"]
-        release_date: ...
-
-        
-

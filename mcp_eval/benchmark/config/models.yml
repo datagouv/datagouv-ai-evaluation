@@ -1,0 +1,17 @@
+models:
+  - provider: mistral
+    entries:
+      - name: "mistral:mistral-small-latest"
+        active: True
+        tags: ["small"]
+      - name: "mistral:mistral-medium-latest"
+        active: False
+        tags: ["medium"]
+  - provider: openai
+    entries:
+      - name: "openai:gpt-4o-mini"
+        active: False
+        tags: ["small"]
+      - name: "openai:gpt-4o"
+        active: False
+        tags: ["medium"]

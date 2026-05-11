@@ -1,0 +1,53 @@
+#evaluation_types :
+#  - evaluation_type_name: str
+#    description: >
+#      What are we evaluating and why ?
+#    capabilities: # Compares agent with different capabilities set
+#      - List[Literal[mcp, code, web]] or [] # What abilities the agent should have
+#    metrics: # What type of metrics is compatible with these capabilities
+#      - Literal[result_accuracy, efficiency, tool_usage]]
+    
+evaluation_types : 
+
+  - data_contamination :
+    description: > 
+      Evaluate the agent responses without any additional capabilities
+      other than its own memory. Measure the degree of data contamination 
+      from the LLM training. An increase in scores in more recent models might 
+      suggest data leakage from the evaluation set and/or past versions of the data.gouv.fr 
+      platform to the providers training set. Because of the ever-changing nature
+      of the platform and its content, an agent should not rely solely on its memory to reply.
+    system_prompts: ["data_gouv_context"]
+    capabilities :
+      - []
+    metrics :
+      - result_accuracy
+      - efficiency
+
+  - mcp_versions :
+    description : >
+      Benchmark different versions of the mcp against themselves.
+      Measure both improvments and non-regression before releasing new versions.
+    system_prompts: "active"
+    capabilities:
+      - [mcp]
+    metrics :
+      - result_accuracy
+      - efficiency
+      - tool_usage
+
+  - capabilities_benchmark :
+    description: >
+      Test combinaisons of different capabilities.
+    system_prompts: "active"
+    capabilities:
+      - [mcp]
+      - [mcp,web]
+      - [mcp,code]
+      - [mcp,web,code]
+    metrics :
+      - result_accuracy
+      - efficiency
+      - tool_usage
+  # Later can add skills.md capability to the evaluation types 
+

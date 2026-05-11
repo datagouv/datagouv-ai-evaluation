@@ -1,3 +1,0 @@
-trajectory_adherence_prompts = """
-...
-"""

@@ -1,0 +1,63 @@
+# Failure modes definition file.
+# Each entry: "name" (SCREAMING_SNAKE_CASE) and "description" (one sentence, evaluator-facing).
+# Score: 1 = failure mode present (bad), 0 = absent. Higher total across tasks = worse.
+
+failure_modes:
+
+  # ── KNOWLEDGE — model's internal understanding fails ────────────────────────
+
+  - name: HALLUCINATION
+    description: >
+      The agent invented a dataset ID, resource name, endpoint, or factual value
+      that does not exist or was not retrieved from the MCP tools
+      (e.g. citing a dataset ID that was never returned by search_datasets or get_dataset_info).
+
+  - name: MISINTERPRETATION
+    description: >
+      The agent retrieved correct tool results but drew wrong conclusions from them
+      (e.g. misread an access-right field, confused two datasets, or applied correct
+      data to the wrong sub-question).
+
+  - name: WRONG_RESOURCE
+    description: >
+      The agent selected a dataset, dataservice, or tool type that does not match
+      the user's actual need (e.g. returned a dataset when an API was requested,
+      or picked a thematically unrelated resource).
+
+  # ── EXECUTION — model's action or tool usage fails ──────────────────────────
+
+  - name: PARAMETER_ERROR
+    description: >
+      The agent called a tool with wrong, malformed, or missing arguments
+      (e.g. passed a dataset ID to a dataservice endpoint, omitted a required field,
+      or used a syntactically invalid value).
+
+  - name: TOOL_OMISSION
+    description: >
+      The agent answered from internal knowledge without calling any tool when a tool
+      call was clearly needed to retrieve current or factual information from the catalog.
+
+  - name: EARLY_STOP
+    description: >
+      The agent stopped its tool chain before completing the necessary steps
+      (e.g. searched but never fetched details, or fetched info for only one of
+      several required resources).
+
+  - name: REDUNDANT_LOOP
+    description: >
+      The agent repeated the same tool call (same tool, same or equivalent arguments)
+      without making progress toward the answer.
+
+  # ── OUTPUT — final response fails the user ──────────────────────────────────
+
+  - name: MISSING_CAVEAT
+    description: >
+      The agent omitted a critical limitation that the user needs before acting
+      (e.g. did not mention that an API requires a registered account, a licence
+      restriction, or that data freshness cannot be guaranteed).
+
+  - name: NO_FALLBACK
+    description: >
+      When the best or primary option was unavailable or not found in the catalog,
+      the agent failed to offer an alternative or degrade gracefully
+      (e.g. returned nothing instead of suggesting the closest available resource).
