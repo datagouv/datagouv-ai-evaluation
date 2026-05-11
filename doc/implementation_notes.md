@@ -128,3 +128,9 @@ Three legacy evaluator files were deleted (`evaluators/experiment_metrics.py`, `
 ## Resource validation scoping
 
 `validate_all_tasks()` runs HTTP checks against live data.gouv.fr resources. When `--nb-samples N` is passed (e.g. for a smoke test), only the first N tasks are validated, not the full set. This avoids validating resources for tasks that won't run.
+
+## Other notes
+
+- does not truncate trace tool results because it is hard to debug
+- add albert api for model provider
+- add good mcp versions number
