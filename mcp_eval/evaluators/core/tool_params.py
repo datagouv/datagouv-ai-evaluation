@@ -72,13 +72,8 @@ class ToolParamsOutput:
     redundant_actual_indices: list[int] = field(default_factory=list)
 
     @property
-    def ground_truth_tool_calls(self) -> int:
+    def matched_tool_calls(self) -> int:
         """GT calls that were correctly matched (params correct + schema compliant)."""
-        return sum(1 for m in self.matches if m.validated)
-
-    @property
-    def correct_parameters_tool_calls(self) -> int:
-        """Actual calls with all listed params correct AND schema compliant."""
         return sum(1 for m in self.matches if m.validated)
 
 

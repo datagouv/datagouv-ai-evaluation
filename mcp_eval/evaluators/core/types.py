@@ -11,25 +11,43 @@ from dataclasses import dataclass, field
 class TaskEvalResult:
     """All per-task metrics, ready for conversion to Opik ScoreResult objects."""
 
-    # ── Tool usage — basics ──────────────────────────────────────────────────
+    # ── Tool usage — actual call counts (precision denominators) ─────────────
     total_tool_calls: int = 0
-    min_required_tool_calls_minimal: int = 0
-    min_required_tool_calls_optimal: int = 0
+    unique_actual_tool_names: int = 0
+    successful_tool_calls: int = 0
     schema_compliant_tool_calls: int = 0
-    correct_parameters_tool_calls: int = 0
-    called_tool_matching_names_minimal: int = 0
-    called_tool_matching_names_optimal: int = 0
-    ground_truth_tool_calls_minimal: int = 0   # GT calls with correct params (minimal level)
-    ground_truth_tool_calls_optimal: int = 0   # GT calls with correct params (optimal level)
-    successful_tool_calls: int = 0             # calls that did not return an error
 
-    # ── Tool usage — rates ───────────────────────────────────────────────────
+    # ── Tool usage — GT requirement sizes (recall denominators) ──────────────
+    required_tool_names_minimal: int = 0       # |set(GT names)|
+    required_tool_names_optimal: int = 0
+    required_tool_calls_minimal: int = 0       # len(GT list)
+    required_tool_calls_optimal: int = 0
+
+    # ── Tool usage — matched counts (TP numerators) ──────────────────────────
+    matched_tool_names_minimal: int = 0        # |set(GT names) ∩ set(actual names)|
+    matched_tool_names_optimal: int = 0
+    matched_tool_calls_minimal: int = 0        # LLM-judged correct calls
+    matched_tool_calls_optimal: int = 0
+
+    # ── Tool usage — rates (tool_selection level, unique names) ─────────────
+    precision_tool_selection_minimal: float = 0.0
+    precision_tool_selection_optimal: float = 0.0
+    recall_tool_selection_minimal: float = 0.0
+    recall_tool_selection_optimal: float = 0.0
+    f1_tool_selection_minimal: float = 0.0
+    f1_tool_selection_optimal: float = 0.0
+
+    # ── Tool usage — rates (tool_call level, params + schema correct) ────────
     schema_compliance_rate: float = 0.0
-    correct_parameters_rate: float = 0.0
     tool_call_success_rate: float = 0.0
-    recall_tool_usage_minimal: float = 0.0
-    recall_tool_usage_optimal: float = 0.0
-    tool_call_efficiency: float = 0.0
+    precision_tool_call_minimal: float = 0.0
+    precision_tool_call_optimal: float = 0.0
+    recall_tool_call_minimal: float = 0.0
+    recall_tool_call_optimal: float = 0.0
+    f1_tool_call_minimal: float = 0.0
+    f1_tool_call_optimal: float = 0.0
+
+    # ── Trajectory ───────────────────────────────────────────────────────────
     trajectory_adherence_minimal: float = 0.0
     trajectory_adherence_optimal: float = 0.0
 

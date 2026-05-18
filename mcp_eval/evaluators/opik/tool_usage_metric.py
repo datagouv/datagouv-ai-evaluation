@@ -84,11 +84,12 @@ class ToolUsageMetric(base_metric.BaseMetric):
         )
 
         # ── Deterministic counts ─────────────────────────────────────────────
-        basics = compute_tool_usage_basics(
-            actual_tool_calls, required_minimal, required_optimal
-        )
         schema_compliant, _ = compute_schema_compliance(
             actual_tool_calls, available_tools_schema
+        )
+        basics = compute_tool_usage_basics(
+            actual_tool_calls, required_minimal, required_optimal,
+            schema_compliant_count=schema_compliant,
         )
 
         # ── LLM judge — run both levels concurrently ─────────────────────────
@@ -112,10 +113,8 @@ class ToolUsageMetric(base_metric.BaseMetric):
 
         params_minimal, params_optimal = asyncio.run(_run_judges())
 
-        gt_minimal = params_minimal.ground_truth_tool_calls
-        gt_optimal = params_optimal.ground_truth_tool_calls
-        # correct_parameters uses the higher-coverage level (optimal superset)
-        correct_params = params_optimal.correct_parameters_tool_calls
+        matched_calls_minimal = params_minimal.matched_tool_calls
+        matched_calls_optimal = params_optimal.matched_tool_calls
 
         reason_minimal = _params_reason(params_minimal, actual_tool_calls)
         reason_optimal = _params_reason(params_optimal, actual_tool_calls)
@@ -123,77 +122,41 @@ class ToolUsageMetric(base_metric.BaseMetric):
         # ── Rates ────────────────────────────────────────────────────────────
         rates = compute_tool_usage_rates(
             basics=basics,
-            schema_compliant_tool_calls=schema_compliant,
-            correct_parameters_tool_calls=correct_params,
-            ground_truth_tool_calls_minimal=gt_minimal,
-            ground_truth_tool_calls_optimal=gt_optimal,
+            matched_tool_calls_minimal=matched_calls_minimal,
+            matched_tool_calls_optimal=matched_calls_optimal,
         )
 
         return [
-            # basics
-            score_result.ScoreResult(
-                name="total_tool_calls", value=float(basics.total_tool_calls)
-            ),
-            score_result.ScoreResult(
-                name="min_required_tool_calls_minimal",
-                value=float(basics.min_required_tool_calls_minimal),
-            ),
-            score_result.ScoreResult(
-                name="min_required_tool_calls_optimal",
-                value=float(basics.min_required_tool_calls_optimal),
-            ),
-            score_result.ScoreResult(
-                name="schema_compliant_tool_calls", value=float(schema_compliant)
-            ),
-            score_result.ScoreResult(
-                name="correct_parameters_tool_calls",
-                value=float(correct_params),
-                reason=reason_optimal,
-            ),
-            score_result.ScoreResult(
-                name="called_tool_matching_names_minimal",
-                value=float(basics.called_tool_matching_names_minimal),
-            ),
-            score_result.ScoreResult(
-                name="called_tool_matching_names_optimal",
-                value=float(basics.called_tool_matching_names_optimal),
-            ),
-            score_result.ScoreResult(
-                name="ground_truth_tool_calls_minimal",
-                value=float(gt_minimal),
-                reason=reason_minimal,
-            ),
-            score_result.ScoreResult(
-                name="ground_truth_tool_calls_optimal",
-                value=float(gt_optimal),
-                reason=reason_optimal,
-            ),
-            score_result.ScoreResult(
-                name="successful_tool_calls", value=float(basics.successful_tool_calls)
-            ),
-            # rates
-            score_result.ScoreResult(
-                name="schema_compliance_rate", value=rates.schema_compliance_rate
-            ),
-            score_result.ScoreResult(
-                name="correct_parameters_rate",
-                value=rates.correct_parameters_rate,
-                reason=reason_optimal,
-            ),
-            score_result.ScoreResult(
-                name="tool_call_success_rate", value=rates.tool_call_success_rate
-            ),
-            score_result.ScoreResult(
-                name="recall_tool_usage_minimal",
-                value=rates.recall_tool_usage_minimal,
-                reason=reason_minimal,
-            ),
-            score_result.ScoreResult(
-                name="recall_tool_usage_optimal",
-                value=rates.recall_tool_usage_optimal,
-                reason=reason_optimal,
-            ),
-            score_result.ScoreResult(
-                name="tool_call_efficiency", value=rates.tool_call_efficiency
-            ),
+            # actual call counts
+            score_result.ScoreResult(name="total_tool_calls", value=float(basics.total_tool_calls)),
+            score_result.ScoreResult(name="unique_actual_tool_names", value=float(basics.unique_actual_tool_names)),
+            score_result.ScoreResult(name="successful_tool_calls", value=float(basics.successful_tool_calls)),
+            score_result.ScoreResult(name="schema_compliant_tool_calls", value=float(basics.schema_compliant_tool_calls)),
+            # GT requirement sizes
+            score_result.ScoreResult(name="required_tool_names_minimal", value=float(basics.required_tool_names_minimal)),
+            score_result.ScoreResult(name="required_tool_names_optimal", value=float(basics.required_tool_names_optimal)),
+            score_result.ScoreResult(name="required_tool_calls_minimal", value=float(basics.required_tool_calls_minimal)),
+            score_result.ScoreResult(name="required_tool_calls_optimal", value=float(basics.required_tool_calls_optimal)),
+            # matched counts (TP)
+            score_result.ScoreResult(name="matched_tool_names_minimal", value=float(basics.matched_tool_names_minimal)),
+            score_result.ScoreResult(name="matched_tool_names_optimal", value=float(basics.matched_tool_names_optimal)),
+            score_result.ScoreResult(name="matched_tool_calls_minimal", value=float(matched_calls_minimal), reason=reason_minimal),
+            score_result.ScoreResult(name="matched_tool_calls_optimal", value=float(matched_calls_optimal), reason=reason_optimal),
+            # rates — schema / success
+            score_result.ScoreResult(name="schema_compliance_rate", value=rates.schema_compliance_rate),
+            score_result.ScoreResult(name="tool_call_success_rate", value=rates.tool_call_success_rate),
+            # rates — tool_selection level
+            score_result.ScoreResult(name="precision_tool_selection_minimal", value=rates.precision_tool_selection_minimal),
+            score_result.ScoreResult(name="precision_tool_selection_optimal", value=rates.precision_tool_selection_optimal),
+            score_result.ScoreResult(name="recall_tool_selection_minimal", value=rates.recall_tool_selection_minimal, reason=reason_minimal),
+            score_result.ScoreResult(name="recall_tool_selection_optimal", value=rates.recall_tool_selection_optimal, reason=reason_optimal),
+            score_result.ScoreResult(name="f1_tool_selection_minimal", value=rates.f1_tool_selection_minimal),
+            score_result.ScoreResult(name="f1_tool_selection_optimal", value=rates.f1_tool_selection_optimal),
+            # rates — tool_call level
+            score_result.ScoreResult(name="precision_tool_call_minimal", value=rates.precision_tool_call_minimal, reason=reason_minimal),
+            score_result.ScoreResult(name="precision_tool_call_optimal", value=rates.precision_tool_call_optimal, reason=reason_optimal),
+            score_result.ScoreResult(name="recall_tool_call_minimal", value=rates.recall_tool_call_minimal, reason=reason_minimal),
+            score_result.ScoreResult(name="recall_tool_call_optimal", value=rates.recall_tool_call_optimal, reason=reason_optimal),
+            score_result.ScoreResult(name="f1_tool_call_minimal", value=rates.f1_tool_call_minimal),
+            score_result.ScoreResult(name="f1_tool_call_optimal", value=rates.f1_tool_call_optimal),
         ]
