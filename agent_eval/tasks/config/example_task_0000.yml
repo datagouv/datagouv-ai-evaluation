@@ -1,0 +1,58 @@
+task_id: # unique ID
+task_name: # Human-friendly name
+
+meta:
+  status: active | deprecated | draft
+  source: forum | support | interview | synthetic
+  turn: single | multi # For now, all single
+  minimal_tool_invocation_type: single_tool | dual_tool_parallel | dual_tool_serial | multi_tool
+  optimal_tool_invocation_type: single_tool | dual_tool_parallel | dual_tool_serial | multi_tool
+
+prompt: # User prompt
+
+draft_answer: # Your raw input answer, to compare with written criteria
+
+evaluation_criteria:
+  # Criteria are truth about the response (not the tool usage).
+  # Agnostic of MCP minor versions — only deprecate on major breaking changes.
+  - v_introduced: "1.0"
+    minimal:
+      # Minimum for the response to be true and helpful.
+      # e.g. prompt "where can I find X?" -> answer "X can be found this way [...]"
+      - criteria: # str
+    optimal:
+      # What a good agent would do to fully answer.
+      # e.g. "X can be found this way [...] or alternatively [...]. Here is X: [...]"
+      - criteria: # str
+
+tool_chain:
+  # If a chain becomes obsolete, add a new entry with the new v_introduced.
+  - v_introduced: "1.0"
+    minimal:
+      chain: # e.g. Tool A > (Tool B + Tool C) > Tool D : run A, then B and C in parallel, then D
+             # or (Tool A > Tool B) + (Tool C > Tool D) : run A then B, while C then D in parallel
+             # Each tool listed once even if called multiple times with different params.
+      required_tools:
+        - name: # exact tool name
+          args:
+            - name: # arg name
+              strict_value: ~ # exact deterministic value — fill if criteria is empty
+              criteria: ~     # semantic description — fill if strict_value is empty
+    optimal:
+      chain: # Complete chain — order may differ from minimal
+      required_tools:
+        # Only additional tools not already listed in minimal
+        - name: # exact tool name
+          args:
+            - name: # arg name
+              strict_value: ~
+              criteria: ~
+
+resources:
+  # Run before evaluation to catch silent failures (archived dataset, changed title, etc.)
+  - type: dataset | resource | dataservice | organization
+    id: # dataset_id or resource_id depending on type
+    checks:
+      - fn: # Literal[same_title_description, download_url_reachable, tabular_api_available, update_date_more_recent_than]
+            # Function to run the check, shouldn't be dependant on each task but rather shared reusable check function
+        params: {} # e.g. {field: update_frequency, expected_value: snapshot_key} - snapshot key will be created later

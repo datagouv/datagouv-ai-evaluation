@@ -1,0 +1,5 @@
+skills_versions:
+  - name: datagouv-skill 
+    version: "v0.0.1"
+    file_name: "0_0_1.md"
+    active: True

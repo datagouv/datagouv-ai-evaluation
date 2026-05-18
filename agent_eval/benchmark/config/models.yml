@@ -1,0 +1,28 @@
+models:
+  - provider: mistral
+    provider_base_url: "https://api.mistral.ai/v1"
+    provider_token: "MISTRAL_API_KEY"
+    entries:
+      - name: "mistral-small-latest"
+        active: True
+        tags: ["small"]
+      - name: "mistral-medium-latest"
+        active: False
+        tags: ["medium"]
+  - provider: openai
+    provider_base_url: "https://api.openai.com/v1"
+    provider_token: "OPENAI_API_KEY"
+    entries:
+      - name: "gpt-4o-mini"
+        active: False
+        tags: ["small"]
+      - name: "gpt-4o"
+        active: False
+        tags: ["medium"]
+  - provider: albert
+    provider_base_url: "https://albert.api.etalab.gouv.fr/v1"
+    provider_token: "ALBERT_API_TOKEN"
+    entries:
+      - name: "openai/gpt-oss-120b"
+        active: False
+        tags: ["medium"]

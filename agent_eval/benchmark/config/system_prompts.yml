@@ -1,0 +1,14 @@
+system_prompts:
+  - name: empty
+    active: False
+    prompt: >
+  - name: data_assistant
+    active: False
+    prompt: >
+      You are a data assistant using an MCP server. 
+      Use MCP tools when relevant to retrieve factual information. 
+      Provide a final answer to the user.
+  - name: data_gouv_context
+    active: True
+    prompt: >
+      You are a helpful assistant answering questions from data.gouv.fr users.

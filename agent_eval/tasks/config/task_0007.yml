@@ -1,0 +1,91 @@
+# ─────────────────────────────────────────────
+# TASK 07
+# ─────────────────────────────────────────────
+
+task_id: task_0007
+task_name: Délais publication listes élus communaux et intercommunaux après élections 2026
+
+meta:
+  status: active
+  source: support
+  turn: single
+  minimal_tool_invocation_type: dual_tool_serial
+  optimal_tool_invocation_type: multi_tool
+
+prompt: >
+  Je souhaiterais savoir sous quels délais seront disponibles les listes des élus
+  communaux et intercommunaux suite aux élections municipales 2026.
+
+draft_answer: >
+  Trouver dataset 5c34c4d1 (RNE), ressources : 3b6b2281 (élus communaux), d5f400de
+  (élus intercommunaux), 41d95d7d (autre). Vérifier date MàJ post-élection.
+  Description mentionne actualisation trimestrielle.
+
+evaluation_criteria:
+  - v_introduced: "1.0"
+    minimal:
+      - criteria: >
+          Agent finds "Répertoire national des élus".
+      - criteria: >
+          Agent identifies the specific resources for communal elected officials
+          and intercommunal elected officials separately.   
+      - criteria: >
+          Agent reads the "Répertoire national des élus" description and reports that the data
+          is updated on a quarterly basis.   
+      - criteria: >
+          Agent notifies if any news is present in the description reguarding ongoing updates.
+    optimal:
+      - criteria: >
+          Agent checks and reports the last update date of the relevant resources.
+        
+
+tool_chain:
+  - v_introduced: "1.0"
+    minimal:
+      chain: search_datasets > get_dataset_info
+      required_tools:
+        - name: search_datasets
+          args:
+            - name: query
+              criteria: >
+                Semantically relevant to the national directory of elected officials.
+                e.g. "répertoire national des élus", "RNE", "élus communaux"
+        - name: get_dataset_info
+          args:
+            - name: dataset_id
+              strict_value: "5c34c4d1634f4173183a64f1"  # RNE
+
+    optimal:
+      chain: search_datasets > get_dataset_info > list_dataset_resources > get_resource_info
+      required_tools:
+        - name: list_dataset_resources
+          args:
+            - name: dataset_id
+              strict_value: "5c34c4d1634f4173183a64f1"
+        - name: get_resource_info
+          args:
+            - name: resource_id
+              strict_value: "3b6b2281-b9d9-4959-ae9d-c2c166dff118"  # élus communaux
+        - name: get_resource_info
+          args:
+            - name: resource_id
+              strict_value: "d5f400de-ae3f-4966-8cb6-a85c70c6c24a"  # élus intercommunaux
+
+resources:
+  - type: dataset
+    id: "5c34c4d1634f4173183a64f1"  # Répertoire national des élus
+    checks:
+      - fn: same_title_description
+        params: {id: ~}
+  - type: resource
+    dataset_id: "5c34c4d1634f4173183a64f1"
+    id: "3b6b2281-b9d9-4959-ae9d-c2c166dff118"  # élus communaux
+    checks:
+      - fn: tabular_api_available
+        params: {}
+  - type: resource
+    dataset_id: "5c34c4d1634f4173183a64f1"
+    id: "d5f400de-ae3f-4966-8cb6-a85c70c6c24a"  # élus intercommunaux
+    checks:
+      - fn: tabular_api_available
+        params: {}

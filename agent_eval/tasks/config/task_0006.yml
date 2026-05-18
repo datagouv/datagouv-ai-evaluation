@@ -1,0 +1,111 @@
+# ─────────────────────────────────────────────
+# TASK 06
+# ─────────────────────────────────────────────
+
+task_id: task_0006
+task_name: Permis de construire attribués sur Tournefeuille
+
+meta:
+  status: active
+  source: forum
+  turn: single
+  minimal_tool_invocation_type: multi_tool
+  optimal_tool_invocation_type: multi_tool
+
+prompt: >
+  Je voudrais consulter la liste des permis de construire attribués sur Tournefeuille
+  à la dernière mise à jour.
+
+draft_answer: >
+  Trouver dataset 689c42fa, lire description, ressources : 65a9e264 (logements, tabular ✓),
+  8f23d65f (non-résidentiel, tabular ✓ — correction vs draft initial). Profiling,
+  filtrer COMM=Tournefeuille.
+
+evaluation_criteria:
+  - v_introduced: "1.0"
+    minimal:
+      - criteria: >
+          Agent finds the dataset "Liste des permis de construire et autres autorisations d'urbanisme".
+      - criteria: >
+          Agent explains the distinction between the residential and non-residential
+          resources and what each covers.
+      - criteria: >
+          Agent identifies and reports the last update date of the data.
+    optimal:
+      - criteria: >
+          Agent queries both the residential to provide at least the beginning of a list.
+      - criteria: >
+          Agent explains the non-residential needs to be downloaded, and explains how to filter it.
+
+tool_chain:
+  - v_introduced: "1.0"
+    minimal:
+      chain: search_datasets > get_dataset_info > list_dataset_resources > get_resource_info
+      required_tools:
+        - name: search_datasets
+          args:
+            - name: query
+              criteria: >
+                Semantically relevant to building permits in France.
+                e.g. "permis de construire"
+        - name: get_dataset_info
+          args:
+            - name: dataset_id
+              strict_value: "689c42fa521ccf80ce954f83"
+        - name: list_dataset_resources
+          args:
+            - name: dataset_id
+              strict_value: "689c42fa521ccf80ce954f83"
+        - name: get_resource_info
+          args:
+            - name: resource_id
+              strict_value: "65a9e264-7a20-46a9-9d98-66becb817bc3" 
+        - name: get_resource_info
+          args:
+            - name: resource_id
+              strict_value: "8f23d65f-7142-4ac5-94c1-077b028255bf" 
+
+    optimal:
+      chain: search_datasets > get_dataset_info > list_dataset_resources > query_resource_data
+      required_tools:
+        - name: get_resource_info
+          args:
+            - name: resource_id
+              strict_value: "b7ebaa95-a2ff-4412-8911-a655dd146d44" # Dict var logements
+        - name: get_resource_info
+          args:
+            - name: resource_id
+              strict_value: "c863c9e3-070c-49e2-91de-92c8d58cc807" # Dic var locaux
+        - name: query_resource_data
+          args:
+            - name: resource_id
+              strict_value: "b7ebaa95-a2ff-4412-8911-a655dd146d44" # Dict var logements
+        - name: query_resource_data
+          args:
+            - name: resource_id
+              strict_value: "c863c9e3-070c-49e2-91de-92c8d58cc807" # Dic var locaux
+        - name: query_resource_data
+          args:
+            - name: resource_id
+              strict_value: "65a9e264-7a20-46a9-9d98-66becb817bc3"  # résidentiel
+            - name: filters
+              criteria: Filter on commune column (COMM) equal to "31557" # Code commune "Tournefeuille"
+
+resources:
+  - type: dataset
+    id: "689c42fa521ccf80ce954f83"  # Liste des permis de construire et autres autorisations d'urbanisme
+    checks:
+      - fn: same_title_description
+        params: {id: ~}
+  - type: resource
+    dataset_id: "689c42fa521ccf80ce954f83"
+    id: "65a9e264-7a20-46a9-9d98-66becb817bc3"  # résidentiel
+    checks:
+      - fn: tabular_api_available
+        params: {}
+  - type: resource
+    dataset_id: "689c42fa521ccf80ce954f83"
+    id: "8f23d65f-7142-4ac5-94c1-077b028255bf"  # non-résidentiel
+    checks:
+      - fn: tabular_api_available
+        params: {}
