@@ -4,16 +4,22 @@ Combines: tool_usage (deterministic), schema_compliance, tool_params (LLM judge)
 Efficiency metrics live in ResultAccuracyMetric.
 Trajectory is handled separately in TrajectoryAdherenceMetric.
 """
+
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 from opik.evaluation.metrics import base_metric, score_result
 
 from mcp_eval.evaluators.core.schema_compliance import compute_schema_compliance
 from mcp_eval.evaluators.core.tool_params import ToolParamsOutput, judge_tool_params
-from mcp_eval.evaluators.core.tool_usage import compute_tool_usage_basics, compute_tool_usage_rates
+from mcp_eval.evaluators.core.tool_usage import (
+    compute_tool_usage_basics,
+    compute_tool_usage_rates,
+)
+from mcp_eval.evaluators.core.judge_model import JudgeModel
 from mcp_eval.tasks.loader import RequiredTool, RequiredToolArg
 
 
@@ -23,8 +29,11 @@ def _params_reason(output: ToolParamsOutput, actual_tool_calls: list[dict]) -> s
         marker = "✓" if m.validated else "✗"
         actual_args = ""
         if m.actual_index < len(actual_tool_calls):
-            args = (actual_tool_calls[m.actual_index].get("arguments")
-                    or actual_tool_calls[m.actual_index].get("args") or {})
+            args = (
+                actual_tool_calls[m.actual_index].get("arguments")
+                or actual_tool_calls[m.actual_index].get("args")
+                or {}
+            )
             if args:
                 actual_args = f" args={str(args)[:120]}"
         lines.append(f"[{marker}] {m.tool_name}{actual_args}: {m.explanation}")
@@ -49,9 +58,9 @@ def _deserialize_required_tools(raw: list[dict]) -> list[RequiredTool]:
 
 
 class ToolUsageMetric(base_metric.BaseMetric):
-    def __init__(self, judge_model: str):
+    def __init__(self, judge_model_path: Path):
         super().__init__(name="tool_usage")
-        self._judge_model = judge_model
+        self._judge_model = JudgeModel(judge_model_path)
 
     def score(
         self,
@@ -75,19 +84,29 @@ class ToolUsageMetric(base_metric.BaseMetric):
         )
 
         # ── Deterministic counts ─────────────────────────────────────────────
-        basics = compute_tool_usage_basics(actual_tool_calls, required_minimal, required_optimal)
-        schema_compliant, _ = compute_schema_compliance(actual_tool_calls, available_tools_schema)
+        basics = compute_tool_usage_basics(
+            actual_tool_calls, required_minimal, required_optimal
+        )
+        schema_compliant, _ = compute_schema_compliance(
+            actual_tool_calls, available_tools_schema
+        )
 
         # ── LLM judge — run both levels concurrently ─────────────────────────
         async def _run_judges():
             return await asyncio.gather(
                 judge_tool_params(
-                    self._judge_model, user_prompt, actual_tool_calls,
-                    required_minimal, available_tools_schema,
+                    self._judge_model,
+                    user_prompt,
+                    actual_tool_calls,
+                    required_minimal,
+                    available_tools_schema,
                 ),
                 judge_tool_params(
-                    self._judge_model, user_prompt, actual_tool_calls,
-                    required_optimal, available_tools_schema,
+                    self._judge_model,
+                    user_prompt,
+                    actual_tool_calls,
+                    required_optimal,
+                    available_tools_schema,
                 ),
             )
 
@@ -112,21 +131,69 @@ class ToolUsageMetric(base_metric.BaseMetric):
 
         return [
             # basics
-            score_result.ScoreResult(name="total_tool_calls", value=float(basics.total_tool_calls)),
-            score_result.ScoreResult(name="min_required_tool_calls_minimal", value=float(basics.min_required_tool_calls_minimal)),
-            score_result.ScoreResult(name="min_required_tool_calls_optimal", value=float(basics.min_required_tool_calls_optimal)),
-            score_result.ScoreResult(name="schema_compliant_tool_calls", value=float(schema_compliant)),
-            score_result.ScoreResult(name="correct_parameters_tool_calls", value=float(correct_params), reason=reason_optimal),
-            score_result.ScoreResult(name="called_tool_matching_names_minimal", value=float(basics.called_tool_matching_names_minimal)),
-            score_result.ScoreResult(name="called_tool_matching_names_optimal", value=float(basics.called_tool_matching_names_optimal)),
-            score_result.ScoreResult(name="ground_truth_tool_calls_minimal", value=float(gt_minimal), reason=reason_minimal),
-            score_result.ScoreResult(name="ground_truth_tool_calls_optimal", value=float(gt_optimal), reason=reason_optimal),
-            score_result.ScoreResult(name="successful_tool_calls", value=float(basics.successful_tool_calls)),
+            score_result.ScoreResult(
+                name="total_tool_calls", value=float(basics.total_tool_calls)
+            ),
+            score_result.ScoreResult(
+                name="min_required_tool_calls_minimal",
+                value=float(basics.min_required_tool_calls_minimal),
+            ),
+            score_result.ScoreResult(
+                name="min_required_tool_calls_optimal",
+                value=float(basics.min_required_tool_calls_optimal),
+            ),
+            score_result.ScoreResult(
+                name="schema_compliant_tool_calls", value=float(schema_compliant)
+            ),
+            score_result.ScoreResult(
+                name="correct_parameters_tool_calls",
+                value=float(correct_params),
+                reason=reason_optimal,
+            ),
+            score_result.ScoreResult(
+                name="called_tool_matching_names_minimal",
+                value=float(basics.called_tool_matching_names_minimal),
+            ),
+            score_result.ScoreResult(
+                name="called_tool_matching_names_optimal",
+                value=float(basics.called_tool_matching_names_optimal),
+            ),
+            score_result.ScoreResult(
+                name="ground_truth_tool_calls_minimal",
+                value=float(gt_minimal),
+                reason=reason_minimal,
+            ),
+            score_result.ScoreResult(
+                name="ground_truth_tool_calls_optimal",
+                value=float(gt_optimal),
+                reason=reason_optimal,
+            ),
+            score_result.ScoreResult(
+                name="successful_tool_calls", value=float(basics.successful_tool_calls)
+            ),
             # rates
-            score_result.ScoreResult(name="schema_compliance_rate", value=rates.schema_compliance_rate),
-            score_result.ScoreResult(name="correct_parameters_rate", value=rates.correct_parameters_rate, reason=reason_optimal),
-            score_result.ScoreResult(name="tool_call_success_rate", value=rates.tool_call_success_rate),
-            score_result.ScoreResult(name="recall_tool_usage_minimal", value=rates.recall_tool_usage_minimal, reason=reason_minimal),
-            score_result.ScoreResult(name="recall_tool_usage_optimal", value=rates.recall_tool_usage_optimal, reason=reason_optimal),
-            score_result.ScoreResult(name="tool_call_efficiency", value=rates.tool_call_efficiency),
+            score_result.ScoreResult(
+                name="schema_compliance_rate", value=rates.schema_compliance_rate
+            ),
+            score_result.ScoreResult(
+                name="correct_parameters_rate",
+                value=rates.correct_parameters_rate,
+                reason=reason_optimal,
+            ),
+            score_result.ScoreResult(
+                name="tool_call_success_rate", value=rates.tool_call_success_rate
+            ),
+            score_result.ScoreResult(
+                name="recall_tool_usage_minimal",
+                value=rates.recall_tool_usage_minimal,
+                reason=reason_minimal,
+            ),
+            score_result.ScoreResult(
+                name="recall_tool_usage_optimal",
+                value=rates.recall_tool_usage_optimal,
+                reason=reason_optimal,
+            ),
+            score_result.ScoreResult(
+                name="tool_call_efficiency", value=rates.tool_call_efficiency
+            ),
         ]

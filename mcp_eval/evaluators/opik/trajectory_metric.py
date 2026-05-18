@@ -1,14 +1,22 @@
 """
 Opik wrapper for trajectory adherence evaluation.
 """
+
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from opik.evaluation.metrics import base_metric, score_result
 
 from mcp_eval.evaluators.core.trajectory import compute_trajectory_adherence
-from mcp_eval.tasks.loader import RequiredTool, RequiredToolArg, ToolChain, ToolChainLevel
+from mcp_eval.evaluators.core.judge_model import JudgeModel
+from mcp_eval.tasks.loader import (
+    RequiredTool,
+    RequiredToolArg,
+    ToolChain,
+    ToolChainLevel,
+)
 
 
 def _deserialize_level(raw: dict) -> ToolChainLevel:
@@ -30,9 +38,9 @@ def _deserialize_level(raw: dict) -> ToolChainLevel:
 
 
 class TrajectoryAdherenceMetric(base_metric.BaseMetric):
-    def __init__(self, judge_model: str):
+    def __init__(self, judge_model_path: Path):
         super().__init__(name="trajectory_adherence")
-        self._judge_model = judge_model
+        self._judge_model = JudgeModel(judge_model_path)
 
     def score(
         self,

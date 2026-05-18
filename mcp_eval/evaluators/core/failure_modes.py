@@ -15,6 +15,7 @@ from pydantic_ai import Agent
 
 from mcp_eval.evaluators.core.result_accuracy import CriterionResult
 from mcp_eval.evaluators.core.prompts import failure_modes as prompts
+from mcp_eval.evaluators.core.judge_model import JudgeModel
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class FailureModeOutput:
 
 
 async def judge_failure_modes(
-    model: str,
+    model: JudgeModel,
     user_prompt: str,
     agent_answer: str,
     failed_criteria: list[CriterionResult] | None = None,

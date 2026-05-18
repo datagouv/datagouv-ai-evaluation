@@ -8,6 +8,7 @@ import yaml
 
 # ── Config dataclasses ────────────────────────────────────────────────────────
 
+
 @dataclass
 class MCPVersionConfig:
     version: str
@@ -20,8 +21,10 @@ class EvaluationTypeConfig:
     name: str
     description: str
     capabilities: list[list[str]]  # e.g. [[], ["mcp"], ["mcp", "web"]]
-    metrics: list[str]             # e.g. ["result_accuracy", "efficiency", "tool_usage"]
-    system_prompts_filter: list[str] | str = "active"  # list of names | "active" | "all"
+    metrics: list[str]  # e.g. ["result_accuracy", "efficiency", "tool_usage"]
+    system_prompts_filter: list[str] | str = (
+        "active"  # list of names | "active" | "all"
+    )
 
 
 @dataclass
@@ -34,17 +37,19 @@ class SystemPromptConfig:
 @dataclass
 class RunConfiguration:
     """A single row of the cross-product: one concrete experiment to run."""
+
     evaluation_type: str
-    capabilities: list[str]         # e.g. ["mcp", "web"]
-    mcp_version: str | None         # None for data_contamination (no MCP server)
+    capabilities: list[str]  # e.g. ["mcp", "web"]
+    mcp_version: str | None  # None for data_contamination (no MCP server)
     mcp_server_url: str | None
-    model: str
+    model: dict[str, str]
     system_prompt_name: str
     system_prompt: str
     metrics: list[str] = field(default_factory=list)
 
 
 # ── YAML loaders ──────────────────────────────────────────────────────────────
+
 
 def _load_yaml(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
@@ -70,13 +75,15 @@ def load_evaluation_types(path: Path) -> list[EvaluationTypeConfig]:
         if name is None:
             continue
         sp_filter = entry.get("system_prompts", "active")
-        configs.append(EvaluationTypeConfig(
-            name=name,
-            description=(entry.get("description") or "").strip(),
-            capabilities=entry.get("capabilities") or [[]],
-            metrics=entry.get("metrics") or [],
-            system_prompts_filter=sp_filter,
-        ))
+        configs.append(
+            EvaluationTypeConfig(
+                name=name,
+                description=(entry.get("description") or "").strip(),
+                capabilities=entry.get("capabilities") or [[]],
+                metrics=entry.get("metrics") or [],
+                system_prompts_filter=sp_filter,
+            )
+        )
     return configs
 
 
@@ -93,15 +100,22 @@ def load_mcp_versions(path: Path) -> list[MCPVersionConfig]:
     ]
 
 
-def load_models(path: Path) -> list[str]:
+def load_models(path: Path) -> list[dict[str, str]]:
     """Return a flat list of model name strings (provider:model format)."""
     raw = _load_yaml(path)
-    names = []
+    models = []
     for provider_block in raw.get("models") or []:
         for entry in provider_block.get("entries") or []:
             if entry.get("name") and entry.get("active", True):
-                names.append(entry["name"])
-    return names
+                models.append(
+                    {
+                        "name": entry["name"],
+                        "provider": provider_block["provider"],
+                        "provider_base_url": provider_block["provider_base_url"],
+                        "provider_token": provider_block["provider_token"],
+                    }
+                )
+    return models
 
 
 def load_system_prompts(path: Path) -> list[SystemPromptConfig]:
@@ -109,15 +123,18 @@ def load_system_prompts(path: Path) -> list[SystemPromptConfig]:
     configs = []
     for entry in raw.get("system_prompts") or []:
         prompt_text = (entry.get("prompt") or "").strip()
-        configs.append(SystemPromptConfig(
-            name=entry["name"],
-            active=bool(entry.get("active", True)),
-            prompt=prompt_text,
-        ))
+        configs.append(
+            SystemPromptConfig(
+                name=entry["name"],
+                active=bool(entry.get("active", True)),
+                prompt=prompt_text,
+            )
+        )
     return configs
 
 
 # ── Cross-product builder ─────────────────────────────────────────────────────
+
 
 def _resolve_system_prompts(
     all_sps: list[SystemPromptConfig],
@@ -162,7 +179,9 @@ def build_run_configurations(
         if evaluation_type_filter and et.name != evaluation_type_filter:
             continue
 
-        et_system_prompts = _resolve_system_prompts(system_prompts, et.system_prompts_filter)
+        et_system_prompts = _resolve_system_prompts(
+            system_prompts, et.system_prompts_filter
+        )
 
         for capabilities in et.capabilities:
             uses_mcp = "mcp" in capabilities
@@ -176,15 +195,17 @@ def build_run_configurations(
             for mcp_cfg in mcp_iter:
                 for model in models:
                     for sp in et_system_prompts:
-                        runs.append(RunConfiguration(
-                            evaluation_type=et.name,
-                            capabilities=list(capabilities),
-                            mcp_version=mcp_cfg.version if mcp_cfg else None,
-                            mcp_server_url=mcp_cfg.server_url if mcp_cfg else None,
-                            model=model,
-                            system_prompt_name=sp.name,
-                            system_prompt=sp.prompt,
-                            metrics=list(et.metrics),
-                        ))
+                        runs.append(
+                            RunConfiguration(
+                                evaluation_type=et.name,
+                                capabilities=list(capabilities),
+                                mcp_version=mcp_cfg.version if mcp_cfg else None,
+                                mcp_server_url=mcp_cfg.server_url if mcp_cfg else None,
+                                model=model,
+                                system_prompt_name=sp.name,
+                                system_prompt=sp.prompt,
+                                metrics=list(et.metrics),
+                            )
+                        )
 
     return runs

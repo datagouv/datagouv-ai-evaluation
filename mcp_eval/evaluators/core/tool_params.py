@@ -12,6 +12,7 @@ Design:
   A call that fails schema compliance is NOT counted as correct even if its
   listed parameters matched.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,12 +26,14 @@ from pydantic_ai import Agent
 
 from mcp_eval.evaluators.core.schema_compliance import check_schema_compliance
 from mcp_eval.evaluators.core.prompts import tool_parameter_correctness as prompts
+from mcp_eval.evaluators.core.judge_model import JudgeModel
 from mcp_eval.tasks.loader import RequiredTool
 
 logger = logging.getLogger(__name__)
 
 
 # ── Pydantic output model for the LLM judge ──────────────────────────────────
+
 
 class _MappingEntry(BaseModel):
     ground_truth_index: int
@@ -47,12 +50,13 @@ class _ToolJudgment(BaseModel):
 
 # ── Result dataclasses ────────────────────────────────────────────────────────
 
+
 @dataclass
 class ToolCallMatch:
     tool_name: str
     gt_index: int
     actual_index: int
-    correct: bool           # LLM says listed params are correct
+    correct: bool  # LLM says listed params are correct
     schema_compliant: bool  # deterministic check on unlisted args
     explanation: str
 
@@ -80,8 +84,9 @@ class ToolParamsOutput:
 
 # ── Judge one tool group ──────────────────────────────────────────────────────
 
+
 async def _judge_tool_group(
-    model: str,
+    model: JudgeModel,
     tool_name: str,
     gt_calls: list[RequiredTool],
     actual_calls: list[dict[str, Any]],
@@ -103,7 +108,9 @@ async def _judge_tool_group(
         system_prompt=prompts.SYSTEM_PROMPT,
         output_type=_ToolJudgment,
     )
-    user_msg = prompts.build_user_message(tool_name, gt_dicts, actual_calls, user_prompt)
+    user_msg = prompts.build_user_message(
+        tool_name, gt_dicts, actual_calls, user_prompt
+    )
 
     try:
         result = await agent.run(user_msg)
@@ -118,14 +125,16 @@ async def _judge_tool_group(
         if gi >= len(gt_calls) or ai >= len(actual_calls):
             continue
         schema_ok = check_schema_compliance(actual_calls[ai], available_tools_schema)
-        matches.append(ToolCallMatch(
-            tool_name=tool_name,
-            gt_index=gi,
-            actual_index=ai,
-            correct=entry.correct,
-            schema_compliant=schema_ok,
-            explanation=entry.explanation,
-        ))
+        matches.append(
+            ToolCallMatch(
+                tool_name=tool_name,
+                gt_index=gi,
+                actual_index=ai,
+                correct=entry.correct,
+                schema_compliant=schema_ok,
+                explanation=entry.explanation,
+            )
+        )
 
     return ToolParamsOutput(
         matches=matches,
@@ -136,8 +145,9 @@ async def _judge_tool_group(
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+
 async def judge_tool_params(
-    model: str,
+    model: JudgeModel,
     user_prompt: str,
     actual_tool_calls: list[dict[str, Any]],
     required_tools: list[RequiredTool],
@@ -158,9 +168,12 @@ async def judge_tool_params(
 
     coros = [
         _judge_tool_group(
-            model, tool_name, gt_calls,
+            model,
+            tool_name,
+            gt_calls,
             actual_by_name.get(tool_name, []),
-            available_tools_schema, user_prompt,
+            available_tools_schema,
+            user_prompt,
         )
         for tool_name, gt_calls in gt_by_name.items()
     ]

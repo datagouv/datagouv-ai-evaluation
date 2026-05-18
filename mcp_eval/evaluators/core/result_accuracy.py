@@ -14,6 +14,7 @@ from pydantic_ai import Agent
 
 from mcp_eval.evaluators.core.prompts import result_accuracy as prompts
 from mcp_eval.tasks.loader import EvaluationCriteria
+from mcp_eval.evaluators.core.judge_model import JudgeModel
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class ResultAccuracyOutput:
 
 
 async def judge_criterion(
-    model: str,
+    model: JudgeModel,
     user_prompt: str,
     agent_answer: str,
     criterion: str,
@@ -69,7 +70,7 @@ async def judge_criterion(
 
 
 async def compute_result_accuracy(
-    model: str,
+    model: JudgeModel,
     user_prompt: str,
     agent_answer: str,
     evaluation_criteria: EvaluationCriteria,

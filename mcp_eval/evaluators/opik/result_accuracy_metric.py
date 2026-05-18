@@ -2,16 +2,24 @@
 Opik wrapper for result accuracy evaluation.
 Calls core/result_accuracy.py via asyncio.run().
 """
+
 from __future__ import annotations
 
 import asyncio
-
+from pathlib import Path
 from opik.evaluation.metrics import base_metric, score_result
 
 from mcp_eval.evaluators.core.efficiency import compute_efficiency
-from mcp_eval.evaluators.core.failure_modes import FailureModeOutput, judge_failure_modes
-from mcp_eval.evaluators.core.result_accuracy import CriterionResult, compute_result_accuracy
+from mcp_eval.evaluators.core.failure_modes import (
+    FailureModeOutput,
+    judge_failure_modes,
+)
+from mcp_eval.evaluators.core.result_accuracy import (
+    CriterionResult,
+    compute_result_accuracy,
+)
 from mcp_eval.evaluators.core.prompts.failure_modes import load_failure_modes
+from mcp_eval.evaluators.core.judge_model import JudgeModel
 from mcp_eval.tasks.loader import EvaluationCriteria
 
 
@@ -25,9 +33,9 @@ def _criteria_reason(results: list[CriterionResult]) -> str:
 
 
 class ResultAccuracyMetric(base_metric.BaseMetric):
-    def __init__(self, judge_model: str):
+    def __init__(self, judge_model_path: Path):
         super().__init__(name="result_accuracy")
-        self._judge_model = judge_model
+        self._judge_model = JudgeModel(judge_model_path)
 
     def score(
         self,
@@ -50,8 +58,12 @@ class ResultAccuracyMetric(base_metric.BaseMetric):
             optimal=raw_criteria.get("optimal") or [],
         )
         raw_chain = exp.get("tool_chain") or {}
-        required_tools_minimal: list[dict] = (raw_chain.get("minimal") or {}).get("required_tools") or []
-        required_tools_optimal: list[dict] = (raw_chain.get("optimal") or {}).get("required_tools") or []
+        required_tools_minimal: list[dict] = (raw_chain.get("minimal") or {}).get(
+            "required_tools"
+        ) or []
+        required_tools_optimal: list[dict] = (raw_chain.get("optimal") or {}).get(
+            "required_tools"
+        ) or []
 
         failure_modes_active = bool(load_failure_modes())
 
@@ -120,17 +132,27 @@ class ResultAccuracyMetric(base_metric.BaseMetric):
             ),
             score_result.ScoreResult(name="latency_ms", value=eff.latency_ms),
             score_result.ScoreResult(name="token_usage", value=float(eff.token_usage)),
-            score_result.ScoreResult(name="token_efficiency_minimal", value=eff.token_efficiency_minimal),
-            score_result.ScoreResult(name="token_efficiency_optimal", value=eff.token_efficiency_optimal),
-            score_result.ScoreResult(name="time_efficiency_minimal", value=eff.time_efficiency_minimal),
-            score_result.ScoreResult(name="time_efficiency_optimal", value=eff.time_efficiency_optimal),
+            score_result.ScoreResult(
+                name="token_efficiency_minimal", value=eff.token_efficiency_minimal
+            ),
+            score_result.ScoreResult(
+                name="token_efficiency_optimal", value=eff.token_efficiency_optimal
+            ),
+            score_result.ScoreResult(
+                name="time_efficiency_minimal", value=eff.time_efficiency_minimal
+            ),
+            score_result.ScoreResult(
+                name="time_efficiency_optimal", value=eff.time_efficiency_optimal
+            ),
         ]
 
         for mode_name, mode_score in fm_output.scores.items():
-            scores.append(score_result.ScoreResult(
-                name=mode_name,
-                value=float(mode_score),
-                reason=fm_output.explanations.get(mode_name) or None,
-            ))
+            scores.append(
+                score_result.ScoreResult(
+                    name=mode_name,
+                    value=float(mode_score),
+                    reason=fm_output.explanations.get(mode_name) or None,
+                )
+            )
 
         return scores

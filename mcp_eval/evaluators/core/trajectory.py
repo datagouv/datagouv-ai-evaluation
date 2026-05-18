@@ -15,6 +15,7 @@ from pydantic_ai import Agent
 
 from mcp_eval.evaluators.core.prompts import trajectory_adherence as prompts
 from mcp_eval.tasks.loader import ToolChain, ToolChainLevel
+from mcp_eval.evaluators.core.judge_model import JudgeModel
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class TrajectoryOutput:
 
 
 async def _judge_level(
-    model: str,
+    model: JudgeModel,
     level: ToolChainLevel,
     actual_tool_calls: list[dict[str, Any]],
     user_prompt: str,
@@ -64,7 +65,7 @@ async def _judge_level(
 
 
 async def compute_trajectory_adherence(
-    model: str,
+    model: JudgeModel,
     tool_chain: ToolChain,
     actual_tool_calls: list[dict[str, Any]],
     user_prompt: str,

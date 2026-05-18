@@ -3,12 +3,18 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
-
+from dotenv import load_dotenv, dotenv_values
 import opik
 from opik import opik_context
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelResponse, ToolCallPart, ToolReturnPart
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
+from mcp_eval.utils import get_model_config_object
+
+load_dotenv(override=True)
+config = dotenv_values(".env")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,6 +27,7 @@ class CapabilityUnavailableError(RuntimeError):
 
 
 # ── Capability → toolset factory ──────────────────────────────────────────────
+
 
 def _build_toolsets(capabilities: list[str], run_config: dict[str, Any]) -> list:
     """
@@ -37,6 +44,7 @@ def _build_toolsets(capabilities: list[str], run_config: dict[str, Any]) -> list
         elif cap == "web":
             try:
                 from pydantic_ai_slim.tools.duckduckgo import DuckDuckGoSearchTool  # type: ignore
+
                 toolsets.append(DuckDuckGoSearchTool())
             except ImportError as exc:
                 raise CapabilityUnavailableError(
@@ -46,6 +54,7 @@ def _build_toolsets(capabilities: list[str], run_config: dict[str, Any]) -> list
         elif cap == "code":
             try:
                 from pydantic_ai_slim.tools.python_eval import PythonEvalTool  # type: ignore
+
                 toolsets.append(PythonEvalTool())
             except ImportError as exc:
                 raise CapabilityUnavailableError(
@@ -58,6 +67,7 @@ def _build_toolsets(capabilities: list[str], run_config: dict[str, Any]) -> list
 
 
 # ── Tool call extraction ──────────────────────────────────────────────────────
+
 
 def _normalize_tool_args(part: ToolCallPart) -> Any:
     args = part.args
@@ -78,12 +88,14 @@ def extract_actual_tool_calls(run_result) -> list[dict[str, Any]]:
         if isinstance(message, ModelResponse):
             for part in parts:
                 if isinstance(part, ToolCallPart):
-                    actual_tool_calls.append({
-                        "tool_call_id": part.tool_call_id,
-                        "name": part.tool_name,
-                        "arguments": _normalize_tool_args(part),
-                        "result": None,
-                    })
+                    actual_tool_calls.append(
+                        {
+                            "tool_call_id": part.tool_call_id,
+                            "name": part.tool_name,
+                            "arguments": _normalize_tool_args(part),
+                            "result": None,
+                        }
+                    )
         for part in parts:
             if isinstance(part, ToolReturnPart):
                 tool_returns_by_id[part.tool_call_id] = part.content
@@ -96,6 +108,7 @@ def extract_actual_tool_calls(run_result) -> list[dict[str, Any]]:
 
 
 # ── Agent result ──────────────────────────────────────────────────────────────
+
 
 @dataclass
 class AgentResult:
@@ -112,17 +125,18 @@ class AgentResult:
 
 # ── Agent runner ──────────────────────────────────────────────────────────────
 
+
 async def run_agent(task: dict[str, Any]) -> AgentResult:
     logger = logging.getLogger(__name__)
 
     capabilities: list[str] = task.get("capabilities") or []
     # May raise CapabilityUnavailableError — caller handles it
     toolsets = _build_toolsets(capabilities, task)
-
-    agent_name = f"{task['model']}-{task.get('mcp_server_url') or 'no-tools'}"
+    model = get_model_config_object(task["model"])
+    agent_name = f"{task['model']['name']}-{task.get('mcp_server_url') or 'no-tools'}"
     agent = Agent(
         name=agent_name,
-        model=task["model"],
+        model=model,
         toolsets=toolsets,
         system_prompt=task.get("system_prompt", ""),
         instrument=True,
@@ -140,7 +154,7 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
 
     return AgentResult(
         server_version=task.get("mcp_version"),
-        model=task["model"],
+        model=task["model"]["name"],
         answer=run_result.output,
         actual_tool_calls=extract_actual_tool_calls(run_result),
         available_tools=task.get("mcp_tools_description", ""),
@@ -153,13 +167,16 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
 
 # ── Opik-native tracing ───────────────────────────────────────────────────────
 
+
 @opik.track(type="tool", capture_input=False, capture_output=False)
 def _log_tool_call(call: dict) -> None:
     """Create one Opik child span per tool call, nested under the agent_run span."""
     opik_context.update_current_span(
         name=call.get("name", "tool_call"),
         input={"arguments": call.get("arguments") or {}},
-        output={"result": str(call["result"])[:500] if call.get("result") is not None else None},
+        output={
+            "result": str(call["result"]) if call.get("result") is not None else None
+        },
     )
 
 
@@ -175,7 +192,7 @@ async def _run_agent_and_log(task_data: dict[str, Any]) -> AgentResult:
         name=f"agent:{task_data.get('model', 'unknown')}",
         input={"prompt": task_data.get("prompt", "")},
         output={"answer": result.answer},
-        model=task_data.get("model"),
+        model=task_data.get("model", {})["name"],
         usage={
             "total_tokens": result.token_usage,
             "prompt_tokens": 0,
@@ -191,7 +208,13 @@ async def _run_agent_and_log(task_data: dict[str, Any]) -> AgentResult:
 # ── Task factory for Opik evaluate() ─────────────────────────────────────────
 
 _MAX_RETRIES = 5
-_RETRY_BACKOFF = [10, 30, 60, 90, 120]
+_RETRY_BACKOFF = [
+    61,
+    70,
+    80,
+    90,
+    120,
+]  # Albert API RPM quotas is 10, to avoid 429 errors
 
 
 def make_task(run_config: dict[str, Any]):
@@ -223,7 +246,10 @@ def make_task(run_config: dict[str, Any]):
                 wait = _RETRY_BACKOFF[min(attempt, len(_RETRY_BACKOFF) - 1)]
                 logger.warning(
                     "Task attempt %d/%d failed (%s), retrying in %ds",
-                    attempt + 1, _MAX_RETRIES, exc, wait,
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    exc,
+                    wait,
                 )
                 time.sleep(wait)
 

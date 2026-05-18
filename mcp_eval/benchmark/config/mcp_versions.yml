@@ -1,7 +1,7 @@
 mcp_versions:
-  - version: "1.0"
+  - version: "v0.2.24"
     active: True
     server_url: "https://mcp.data.gouv.fr/mcp"
-  - version: "2.0"
+  - version: "local"
     active: False
     server_url: "http://127.0.0.1:8000/mcp"

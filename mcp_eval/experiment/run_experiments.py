@@ -10,12 +10,12 @@ Options:
     --no-validate            Skip resource pre-flight validation
     --nb-samples N           Limit number of tasks (for smoke tests)
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -36,25 +36,36 @@ from mcp_eval.experiment.tracing import setup_tracing
 
 BENCHMARK_DIR = Path(__file__).parents[1] / "benchmark" / "config"
 TASKS_DIR = Path(__file__).parents[1] / "tasks" / "config"
+JUDGE_MODEL_PATH = (
+    Path(__file__).parents[1] / "evaluators" / "core" / "config" / "judge_model.yml"
+)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
 # ── Metric builder ────────────────────────────────────────────────────────────
 
-def get_scoring_metrics(metrics: list[str], judge_model: str) -> list:
+
+def get_scoring_metrics(metrics: list[str], judge_model_path: Path) -> list:
     selected = []
-    selected.append(ResultAccuracyMetric(judge_model=judge_model))  # includes efficiency + failure modes
+    selected.append(
+        ResultAccuracyMetric(judge_model_path=judge_model_path)
+    )  # includes efficiency + failure modes
     if "tool_usage" in metrics:
-        selected.append(ToolUsageMetric(judge_model=judge_model))
-        selected.append(TrajectoryAdherenceMetric(judge_model=judge_model))
+        selected.append(ToolUsageMetric(judge_model_path=judge_model_path))
+        selected.append(TrajectoryAdherenceMetric(judge_model_path=judge_model_path))
     return selected
 
 
 # ── Opik dataset helper ───────────────────────────────────────────────────────
 
-def get_or_create_dataset(client: opik.Opik, tasks, evaluation_type: str) -> opik.Dataset:
+
+def get_or_create_dataset(
+    client: opik.Opik, tasks, evaluation_type: str
+) -> opik.Dataset:
     name = f"datagouv_mcp_{evaluation_type}"
     dataset = client.get_or_create_dataset(name=name)
     items = [task_to_opik_item(task) for task in tasks]
@@ -64,50 +75,62 @@ def get_or_create_dataset(client: opik.Opik, tasks, evaluation_type: str) -> opi
 
 # ── Experiment name ───────────────────────────────────────────────────────────
 
+
 def experiment_name(run_config: dict) -> str:
     caps = "+".join(run_config.get("capabilities") or []) or "none"
     version = run_config.get("mcp_version") or "no-tools"
-    model = run_config.get("model", "unknown").split(":")[-1]  # strip provider prefix
+    model = run_config.get("model", {}).get("name")
     sp = run_config.get("system_prompt_name", "default")
     return f"datagouv-{run_config['evaluation_type']}-{version}-{model}-{caps}-{sp}"
 
 
 # ── Validation logging ────────────────────────────────────────────────────────
 
+
 def _log_validation_summary(results: dict) -> None:
     for task_id, task_results in results.items():
         for r in task_results:
             level = logging.WARNING if r.severity == "error" else logging.INFO
-            logger.log(level, "[Validation] %s | %s %s | %s: %s",
-                       task_id, r.resource_type, r.resource_id, r.check_fn, r.message)
+            logger.log(
+                level,
+                "[Validation] %s | %s %s | %s: %s",
+                task_id,
+                r.resource_type,
+                r.resource_id,
+                r.check_fn,
+                r.message,
+            )
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run datagouv-ai evaluations")
-    parser.add_argument("--evaluation-type", default=None,
-                        help="Run only this evaluation type. Omit to run all.")
-    parser.add_argument("--judge-model", default=None,
-                        help="Model used for LLM-as-a-judge. Falls back to JUDGE_MODEL env var. Required.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Build configs and validate tasks, but do not run agents.")
-    parser.add_argument("--no-validate", action="store_true",
-                        help="Skip resource pre-flight validation.")
-    parser.add_argument("--nb-samples", type=int, default=None,
-                        help="Limit number of dataset items per experiment (smoke test).")
+    parser.add_argument(
+        "--evaluation-type",
+        default=None,
+        help="Run only this evaluation type. Omit to run all.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build configs and validate tasks, but do not run agents.",
+    )
+    parser.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Skip resource pre-flight validation.",
+    )
+    parser.add_argument(
+        "--nb-samples",
+        type=int,
+        default=None,
+        help="Limit number of dataset items per experiment (smoke test).",
+    )
     args = parser.parse_args()
 
     load_dotenv(override=True)
-
-    judge_model = args.judge_model or os.environ.get("JUDGE_MODEL")
-    if not judge_model:
-        logger.error(
-            "No judge model specified. Pass --judge-model or set JUDGE_MODEL in your .env."
-        )
-        sys.exit(1)
-    args.judge_model = judge_model
-    logger.info("Judge model: %s", judge_model)
 
     setup_tracing()
 
@@ -121,8 +144,10 @@ def main() -> None:
 
     # ── Resource validation ───────────────────────────────────────────────────
     if not args.no_validate:
-        tasks_to_validate = tasks[:args.nb_samples] if args.nb_samples else tasks
-        logger.info("Running resource validation on %d task(s)…", len(tasks_to_validate))
+        tasks_to_validate = tasks[: args.nb_samples] if args.nb_samples else tasks
+        logger.info(
+            "Running resource validation on %d task(s)…", len(tasks_to_validate)
+        )
         validation_results = asyncio.run(validate_all_tasks(tasks_to_validate))
         _log_validation_summary(validation_results)
         raise_on_errors(validation_results)  # sys.exit(1) on any mismatch
@@ -133,9 +158,11 @@ def main() -> None:
     if not run_configs_raw:
         logger.error("No run configurations produced. Check benchmark YAMLs.")
         sys.exit(1)
-    active_models   = sorted({rc.model for rc in run_configs_raw})
-    active_versions = sorted({rc.mcp_version for rc in run_configs_raw if rc.mcp_version})
-    active_prompts  = sorted({rc.system_prompt_name for rc in run_configs_raw})
+    active_models = sorted({rc.model["name"] for rc in run_configs_raw})
+    active_versions = sorted(
+        {rc.mcp_version for rc in run_configs_raw if rc.mcp_version}
+    )
+    active_prompts = sorted({rc.system_prompt_name for rc in run_configs_raw})
     logger.info("Active models: %s", active_models)
     logger.info("Active MCP versions: %s", active_versions)
     logger.info("Active system prompts: %s", active_prompts)
@@ -156,7 +183,7 @@ def main() -> None:
         logger.info("Starting experiment: %s", exp_name)
 
         dataset = get_or_create_dataset(client, tasks, run_config["evaluation_type"])
-        scoring_metrics = get_scoring_metrics(run_config["metrics"], args.judge_model)
+        scoring_metrics = get_scoring_metrics(run_config["metrics"], JUDGE_MODEL_PATH)
 
         evaluate(
             task_threads=1,
