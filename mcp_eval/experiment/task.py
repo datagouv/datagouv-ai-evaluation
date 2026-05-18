@@ -236,7 +236,6 @@ def make_task(run_config: dict[str, Any]):
                         "available_tool_names": result.available_tool_names,
                         "available_tools_schema": result.available_tools_schema,
                         "latency_ms": result.latency_ms,
-                        "net_latency_ms": result.net_latency_ms,
                         "token_usage": result.token_usage,
                     }
                 }
@@ -264,7 +263,6 @@ def make_task(run_config: dict[str, Any]):
                 "available_tool_names": task_data.get("mcp_tool_names", []),
                 "available_tools_schema": task_data.get("mcp_tools_schema", []),
                 "latency_ms": 0.0,
-                "net_latency_ms": 0.0,
                 "token_usage": 0,
             }
         }
