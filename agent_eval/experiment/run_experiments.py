@@ -2,7 +2,7 @@
 CLI entry point for running evaluations.
 
 Usage:
-    python -m mcp_eval.experiment.run_experiments [OPTIONS]
+    python -m agent_eval.experiment.run_experiments [OPTIONS]
 
 Options:
     --evaluation-type TYPE   Run only this evaluation type (default: all)
@@ -23,16 +23,16 @@ import opik
 from dotenv import load_dotenv
 from opik.evaluation import evaluate
 
-from mcp_eval.benchmark.loader import build_run_configurations
-from mcp_eval.evaluators.opik.experiment_metrics import compute_experiment_metrics
-from mcp_eval.evaluators.opik.result_accuracy_metric import ResultAccuracyMetric
-from mcp_eval.evaluators.opik.tool_usage_metric import ToolUsageMetric
-from mcp_eval.evaluators.opik.trajectory_metric import TrajectoryAdherenceMetric
-from mcp_eval.experiment.run_config import build_all_run_configs
-from mcp_eval.experiment.task import make_task
-from mcp_eval.tasks.loader import load_all_tasks, task_to_opik_item
-from mcp_eval.tasks.resource_validator import raise_on_errors, validate_all_tasks
-from mcp_eval.experiment.tracing import setup_tracing
+from agent_eval.benchmark.loader import build_run_configurations
+from agent_eval.evaluators.opik.experiment_metrics import compute_experiment_metrics
+from agent_eval.evaluators.opik.result_accuracy_metric import ResultAccuracyMetric
+from agent_eval.evaluators.opik.tool_usage_metric import ToolUsageMetric
+from agent_eval.evaluators.opik.trajectory_metric import TrajectoryAdherenceMetric
+from agent_eval.experiment.run_config import build_all_run_configs
+from agent_eval.experiment.task import make_task
+from agent_eval.tasks.loader import load_all_tasks, task_to_opik_item
+from agent_eval.tasks.resource_validator import raise_on_errors, validate_all_tasks
+from agent_eval.experiment.tracing import setup_tracing
 
 BENCHMARK_DIR = Path(__file__).parents[1] / "benchmark" / "config"
 TASKS_DIR = Path(__file__).parents[1] / "tasks" / "config"

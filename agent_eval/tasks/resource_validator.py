@@ -11,7 +11,7 @@ from typing import Callable, Literal
 
 import httpx
 
-from mcp_eval.tasks.loader import Task
+from agent_eval.tasks.loader import Task
 
 logger = logging.getLogger(__name__)
 
@@ -458,7 +458,7 @@ async def validate_all_tasks(
 ) -> dict[str, list[ValidationResult]]:
     """
     Run resource validation for all tasks.
-    snapshot_dir defaults to mcp_eval/tasks/data/.
+    snapshot_dir defaults to agent_eval/tasks/data/.
     """
     import asyncio
 

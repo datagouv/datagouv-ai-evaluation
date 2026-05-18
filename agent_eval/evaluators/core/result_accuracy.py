@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
-from mcp_eval.evaluators.core.prompts import result_accuracy as prompts
-from mcp_eval.tasks.loader import EvaluationCriteria
-from mcp_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.evaluators.core.prompts import result_accuracy as prompts
+from agent_eval.tasks.loader import EvaluationCriteria
+from agent_eval.evaluators.core.judge_model import JudgeModel
 
 logger = logging.getLogger(__name__)
 

@@ -13,14 +13,14 @@ from typing import Any
 
 from opik.evaluation.metrics import base_metric, score_result
 
-from mcp_eval.evaluators.core.schema_compliance import compute_schema_compliance
-from mcp_eval.evaluators.core.tool_params import ToolParamsOutput, judge_tool_params
-from mcp_eval.evaluators.core.tool_usage import (
+from agent_eval.evaluators.core.schema_compliance import compute_schema_compliance
+from agent_eval.evaluators.core.tool_params import ToolParamsOutput, judge_tool_params
+from agent_eval.evaluators.core.tool_usage import (
     compute_tool_usage_basics,
     compute_tool_usage_rates,
 )
-from mcp_eval.evaluators.core.judge_model import JudgeModel
-from mcp_eval.tasks.loader import RequiredTool, RequiredToolArg
+from agent_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.tasks.loader import RequiredTool, RequiredToolArg
 
 
 def _params_reason(output: ToolParamsOutput, actual_tool_calls: list[dict]) -> str:

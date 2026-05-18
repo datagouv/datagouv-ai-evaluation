@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from mcp_eval.tasks.loader import RequiredTool
+from agent_eval.tasks.loader import RequiredTool
 
 
 @dataclass

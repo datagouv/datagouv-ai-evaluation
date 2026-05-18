@@ -4,7 +4,7 @@ models:
     provider_token: "MISTRAL_API_KEY"
     entries:
       - name: "mistral-small-latest"
-        active: False
+        active: True
         tags: ["small"]
       - name: "mistral-medium-latest"
         active: False
@@ -24,5 +24,5 @@ models:
     provider_token: "ALBERT_API_TOKEN"
     entries:
       - name: "openai/gpt-oss-120b"
-        active: True
+        active: False
         tags: ["medium"]

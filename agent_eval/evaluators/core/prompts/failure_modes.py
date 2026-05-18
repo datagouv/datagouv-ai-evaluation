@@ -1,7 +1,7 @@
 """
 Prompt for failure mode detection.
 
-The failure modes definition file lives at mcp_eval/evaluators/failure_modes.yml.
+The failure modes definition file lives at agent_eval/evaluators/failure_modes.yml.
 That file will be populated by the user; this module loads it and builds the judge prompt.
 Each failure mode gets a score of 1 (present = failure) or 0 (absent = no failure).
 Higher total across tasks = more failures = worse.

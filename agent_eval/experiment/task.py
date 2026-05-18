@@ -11,7 +11,7 @@ from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
-from mcp_eval.utils import get_model_config_object
+from agent_eval.utils import get_model_config_object
 
 load_dotenv(override=True)
 config = dotenv_values(".env")

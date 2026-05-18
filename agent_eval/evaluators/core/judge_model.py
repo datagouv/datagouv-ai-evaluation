@@ -5,7 +5,7 @@ from pathlib import Path
 from dotenv import dotenv_values
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from mcp_eval.utils import CompatibleOpenAIChatModel
+from agent_eval.utils import CompatibleOpenAIChatModel
 
 logger = logging.getLogger(__name__)
 _config = dotenv_values(".env")

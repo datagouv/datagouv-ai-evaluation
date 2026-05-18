@@ -24,10 +24,10 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
-from mcp_eval.evaluators.core.schema_compliance import check_schema_compliance
-from mcp_eval.evaluators.core.prompts import tool_parameter_correctness as prompts
-from mcp_eval.evaluators.core.judge_model import JudgeModel
-from mcp_eval.tasks.loader import RequiredTool
+from agent_eval.evaluators.core.schema_compliance import check_schema_compliance
+from agent_eval.evaluators.core.prompts import tool_parameter_correctness as prompts
+from agent_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.tasks.loader import RequiredTool
 
 logger = logging.getLogger(__name__)
 

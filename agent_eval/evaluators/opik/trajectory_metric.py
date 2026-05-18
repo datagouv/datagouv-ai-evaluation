@@ -9,9 +9,9 @@ from pathlib import Path
 
 from opik.evaluation.metrics import base_metric, score_result
 
-from mcp_eval.evaluators.core.trajectory import compute_trajectory_adherence
-from mcp_eval.evaluators.core.judge_model import JudgeModel
-from mcp_eval.tasks.loader import (
+from agent_eval.evaluators.core.trajectory import compute_trajectory_adherence
+from agent_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.tasks.loader import (
     RequiredTool,
     RequiredToolArg,
     ToolChain,

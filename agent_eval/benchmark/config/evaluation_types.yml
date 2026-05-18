@@ -36,9 +36,9 @@ evaluation_types :
       - efficiency
       - tool_usage
 
-  - capabilities_benchmark :
+  - mcp_capabilities_benchmark :
     description: >
-      Test combinaisons of different capabilities.
+      Test combinaisons of different capabilities with the mcp.
     system_prompts: "active"
     capabilities:
       - [mcp]
@@ -49,5 +49,19 @@ evaluation_types :
       - result_accuracy
       - efficiency
       - tool_usage
+
+  - skills_mcp_capabilities_benchmark :
+    description: >
+      Test combinaisons of different capabilities.
+    system_prompts: "active"
+    capabilities:
+      - [mcp]
+      - [web,code]
+      - [mcp,web,code]
+      - [skills,web,code]
+      - [mcp,skills,web,code]
+    metrics :
+      - result_accuracy
+      - efficiency
   # Later can add skills.md capability to the evaluation types 
 

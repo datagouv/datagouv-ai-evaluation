@@ -9,18 +9,18 @@ import asyncio
 from pathlib import Path
 from opik.evaluation.metrics import base_metric, score_result
 
-from mcp_eval.evaluators.core.efficiency import compute_efficiency
-from mcp_eval.evaluators.core.failure_modes import (
+from agent_eval.evaluators.core.efficiency import compute_efficiency
+from agent_eval.evaluators.core.failure_modes import (
     FailureModeOutput,
     judge_failure_modes,
 )
-from mcp_eval.evaluators.core.result_accuracy import (
+from agent_eval.evaluators.core.result_accuracy import (
     CriterionResult,
     compute_result_accuracy,
 )
-from mcp_eval.evaluators.core.prompts.failure_modes import load_failure_modes
-from mcp_eval.evaluators.core.judge_model import JudgeModel
-from mcp_eval.tasks.loader import EvaluationCriteria
+from agent_eval.evaluators.core.prompts.failure_modes import load_failure_modes
+from agent_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.tasks.loader import EvaluationCriteria
 
 
 def _criteria_reason(results: list[CriterionResult]) -> str:
