@@ -45,6 +45,8 @@ To start, we need basic metrics that will serve as basis to compute more elabora
 
 Binary flags (0/1) per failure mode, detected by an LLM judge. Not a score in itself but enables aggregate failure analysis at experiment level.
 
+The judge receives both minimal and optimal tool chains but implicitly reasons against the **optimal** scenario. Scoping is currently blurry — a future improvement should make this explicit in the prompt.
+
 Defined failure modes: `HALLUCINATION`, `MISINTERPRETATION`, `WRONG_RESOURCE`, `PARAMETER_ERROR`, `TOOL_OMISSION`, `EARLY_STOP`, `REDUNDANT_LOOP`, `MISSING_CAVEAT`, `NO_FALLBACK`.
 
 ---

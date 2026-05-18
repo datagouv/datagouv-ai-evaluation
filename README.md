@@ -36,7 +36,7 @@ The Opik OTLP tracing endpoint used by this framework is `http://localhost:5173/
 ## Repository structure
 
 ```
-mcp_eval/
+agent_eval/
 ├── benchmark/
 │   └── config/                  # Experiment cross-product configuration
 │       ├── evaluation_types.yml # Evaluation types (data_contamination, mcp_versions, …)
@@ -94,7 +94,7 @@ Each type defines which metrics to compute and which system prompts to apply.
 
 ## Tasks
 
-Each task is a YAML file in `mcp_eval/tasks/config/`. A task defines:
+Each task is a YAML file in `agent_eval/tasks/config/`. A task defines:
 - **prompt**: the user question sent to the agent
 - **evaluation_criteria**: what constitutes a correct answer, at minimal and optimal levels
 - **tool_chain**: expected MCP tool calls (name, arguments) at minimal and optimal levels
@@ -154,16 +154,16 @@ opik configure  # point to http://localhost:5173
 
 ```bash
 # Run all active evaluation types
-python -m mcp_eval.experiment.run_experiments
+python -m agent_eval.experiment.run_experiments
 
 # Run a single evaluation type
-python -m mcp_eval.experiment.run_experiments --evaluation-type mcp_versions
+python -m agent_eval.experiment.run_experiments --evaluation-type mcp_versions
 
 # Smoke test (1 task, no resource validation)
-python -m mcp_eval.experiment.run_experiments --nb-samples 1 --no-validate --dry-run
+python -m agent_eval.experiment.run_experiments --nb-samples 1 --no-validate --dry-run
 
 # Override the judge model
-python -m mcp_eval.experiment.run_experiments --judge-model openai:gpt-4o
+python -m agent_eval.experiment.run_experiments --judge-model openai:gpt-4o
 ```
 
 The run validates all referenced data.gouv.fr resources before executing (can be skipped with `--no-validate`). Results appear in the Opik UI at [http://localhost:5173](http://localhost:5173) under the configured project name.
@@ -190,8 +190,8 @@ evaluation_task
 
 ## Adding tasks
 
-Create `mcp_eval/tasks/config/task_XXXX.yml` following the format in `example_task_0000.yml`. Set `meta.status: active` when the task is ready. Run with `--no-validate --dry-run` first to check the YAML parses correctly.
+Create `agent_eval/tasks/config/task_XXXX.yml` following the format in `example_task_0000.yml`. Set `meta.status: active` when the task is ready. Run with `--no-validate --dry-run` first to check the YAML parses correctly.
 
 ## Adding models or MCP versions
 
-Edit `mcp_eval/benchmark/config/models.yml` or `mcp_versions.yml`. Set `active: true` for entries to include in the next run. No code changes needed.
+Edit `agent_eval/benchmark/config/models.yml` or `mcp_versions.yml`. Set `active: true` for entries to include in the next run. No code changes needed.

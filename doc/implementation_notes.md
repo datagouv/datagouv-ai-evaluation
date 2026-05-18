@@ -36,11 +36,15 @@ Early versions had a silent fallback to `openai:gpt-4o-mini` in both argparse an
 
 ## Metric architecture
 
-All metrics are implemented as Opik `BaseMetric` subclasses in `mcp_eval/evaluators/opik/`. The actual LLM judge logic lives in `mcp_eval/evaluators/core/` (no Opik dependency), called via `asyncio.run()` from the metric `score()` method.
+All metrics are implemented as Opik `BaseMetric` subclasses in `agent_eval/evaluators/opik/`. The actual LLM judge logic lives in `agent_eval/evaluators/core/` (no Opik dependency), called via `asyncio.run()` from the metric `score()` method.
 
 ### Why failure modes are in `ResultAccuracyMetric`
 
 Opik metrics run independently and cannot share Python objects — only numeric scores flow between them via `kwargs`. Failure mode detection needs context that only `ResultAccuracyMetric` has: the list of failed criteria (with reasons), actual tool calls, and required tool chains. Moving failure mode detection into `ResultAccuracyMetric` was the only way to give the judge enough signal without duplicating LLM calls.
+
+### Failure modes scenario scope
+
+`judge_failure_modes` currently receives both `required_tools_minimal` and `required_tools_optimal` but the judge prompt effectively reasons against the **optimal** scenario (the richer context). This is implicit and blurry — the judge has no explicit instruction to treat the two levels differently. **TODO:** decide whether failure modes should be scoped to a single level (optimal is the natural choice) and update the prompt accordingly.
 
 ### Why efficiency metrics are in `ResultAccuracyMetric`
 
@@ -108,18 +112,18 @@ After an initial flat layout, files were reorganised into subdirectories:
 
 | Old location | New location |
 |---|---|
-| `mcp_eval/tracing.py` | `mcp_eval/experiment/tracing.py` |
-| `mcp_eval/evaluators/prompts/` | `mcp_eval/evaluators/core/prompts/` |
-| `mcp_eval/evaluators/failure_modes.yml` | `mcp_eval/evaluators/core/config/failure_modes.yml` |
-| `mcp_eval/benchmark/*.yml` | `mcp_eval/benchmark/config/*.yml` |
-| `mcp_eval/tasks/task_*.yml` | `mcp_eval/tasks/config/task_*.yml` |
+| `agent_eval/tracing.py` | `agent_eval/experiment/tracing.py` |
+| `agent_eval/evaluators/prompts/` | `agent_eval/evaluators/core/prompts/` |
+| `agent_eval/evaluators/failure_modes.yml` | `agent_eval/evaluators/core/config/failure_modes.yml` |
+| `agent_eval/benchmark/*.yml` | `agent_eval/benchmark/config/*.yml` |
+| `agent_eval/tasks/task_*.yml` | `agent_eval/tasks/config/task_*.yml` |
 
-**Critical**: `mcp_eval/evaluators/core/prompts/__init__.py` must exist (empty file). Without it, all `from mcp_eval.evaluators.core.prompts import ...` imports fail at runtime with `ModuleNotFoundError`.
+**Critical**: `agent_eval/evaluators/core/prompts/__init__.py` must exist (empty file). Without it, all `from agent_eval.evaluators.core.prompts import ...` imports fail at runtime with `ModuleNotFoundError`.
 
 Path constants updated accordingly:
-- `BENCHMARK_DIR` → `mcp_eval/benchmark/config`
-- `TASKS_DIR` → `mcp_eval/tasks/config`
-- `_DEFAULT_FAILURE_MODES_PATH` → `mcp_eval/evaluators/core/config/failure_modes.yml`
+- `BENCHMARK_DIR` → `agent_eval/benchmark/config`
+- `TASKS_DIR` → `agent_eval/tasks/config`
+- `_DEFAULT_FAILURE_MODES_PATH` → `agent_eval/evaluators/core/config/failure_modes.yml`
 
 Three legacy evaluator files were deleted (`evaluators/experiment_metrics.py`, `evaluators/tool_invocation_judge.py`, `evaluators/tool_selection_match.py`) along with the now-superseded `evaluators/opik/failure_mode_metric.py`.
 
