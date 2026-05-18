@@ -131,6 +131,7 @@ Three legacy evaluator files were deleted (`evaluators/experiment_metrics.py`, `
 
 ## Other notes
 
-- does not truncate trace tool results because it is hard to debug
-- add albert api for model provider
-- add good mcp versions number
+- does not truncate trace tool results because it is hard to debug # done
+- add albert api for model provider # done
+- add good mcp versions number # done
+- remove the backoff factor from latency calculation to avoid biaising latency results for some providers : compute net_lantecy_ms for lantency_ms now # done
