@@ -24,7 +24,14 @@ class CompatibleOpenAIChatModel(OpenAIChatModel):
        agent resumes from the failing turn rather than restarting from scratch.
     2. Patches tool_calls with type=null (e.g. Mistral) to type="function"
        before pydantic-ai re-validates the response.
+
+    Accumulated backoff wait time is tracked in `rate_limit_wait_ms` so callers
+    can compute net latency (actual inference time, excluding quota delays).
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rate_limit_wait_ms: float = 0.0
 
     async def request(self, messages, model_settings, model_request_parameters):
         for attempt, wait in enumerate([0] + _RATE_LIMIT_BACKOFF):
@@ -36,6 +43,7 @@ class CompatibleOpenAIChatModel(OpenAIChatModel):
                     len(_RATE_LIMIT_BACKOFF) + 1,
                 )
                 await asyncio.sleep(wait)
+                self.rate_limit_wait_ms += wait * 1000
             try:
                 return await super().request(
                     messages, model_settings, model_request_parameters

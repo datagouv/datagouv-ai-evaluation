@@ -148,6 +148,7 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
     async with agent:
         run_result = await agent.run(task["prompt"])
     latency_ms = (time.perf_counter() - t0) * 1000
+    net_latency_ms = latency_ms - model.rate_limit_wait_ms
 
     usage = run_result.usage() if callable(getattr(run_result, "usage", None)) else None
     token_usage = getattr(usage, "total_tokens", 0) or 0
@@ -160,7 +161,7 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
         available_tools=task.get("mcp_tools_description", ""),
         available_tool_names=task.get("mcp_tool_names", []),
         available_tools_schema=task.get("mcp_tools_schema", []),
-        latency_ms=latency_ms,
+        latency_ms=net_latency_ms,
         token_usage=token_usage,
     )
 
@@ -235,6 +236,7 @@ def make_task(run_config: dict[str, Any]):
                         "available_tool_names": result.available_tool_names,
                         "available_tools_schema": result.available_tools_schema,
                         "latency_ms": result.latency_ms,
+                        "net_latency_ms": result.net_latency_ms,
                         "token_usage": result.token_usage,
                     }
                 }
@@ -262,6 +264,7 @@ def make_task(run_config: dict[str, Any]):
                 "available_tool_names": task_data.get("mcp_tool_names", []),
                 "available_tools_schema": task_data.get("mcp_tools_schema", []),
                 "latency_ms": 0.0,
+                "net_latency_ms": 0.0,
                 "token_usage": 0,
             }
         }
