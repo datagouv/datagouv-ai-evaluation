@@ -100,7 +100,7 @@ tool_chain:
                 directory: "FHIR", "FINESS", "annuaire santé", "établissements sanitaires"
         - name: get_dataset_info
           args:
-            - name: 
+            - name: dataset_id
               strict_value: "536c47d9a3a72933d8d1b3b2"
 
     optimal:

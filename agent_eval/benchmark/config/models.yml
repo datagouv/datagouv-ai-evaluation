@@ -4,10 +4,10 @@ models:
     provider_token: "MISTRAL_API_KEY"
     entries:
       - name: "mistral-small-latest"
-        active: True
+        active: False
         tags: ["small"]
       - name: "mistral-medium-latest"
-        active: False
+        active: True
         tags: ["medium"]
   - provider: openai
     provider_base_url: "https://api.openai.com/v1"

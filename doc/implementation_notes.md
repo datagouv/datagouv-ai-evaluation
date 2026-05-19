@@ -139,3 +139,11 @@ Three legacy evaluator files were deleted (`evaluators/experiment_metrics.py`, `
 - add albert api for model provider # done
 - add good mcp versions number # done
 - remove the backoff factor from latency calculation to avoid biaising latency results for some providers : compute net_lantecy_ms for lantency_ms now # done
+
+- consolidate trough semantic layer for tooling and trajectory
+- integrate for skills and cli benchmark
+
+challenges:
+- many platforms, open source x all criteria
+- unlike traditional ML, way more metrics, and a metric name across papers and platforms has not always the same definition/formula
+- balance quality/reproducibility (often required more determinism and/or manual labeling) vs scalability/statistical power/versatility (more llm-as-a-judge) of evaluations
