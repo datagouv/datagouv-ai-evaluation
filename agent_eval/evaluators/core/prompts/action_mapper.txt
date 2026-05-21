@@ -1,0 +1,42 @@
+You are evaluating an AI agent that completed a data task on data.gouv.fr.
+The agent used a code execution tool. Your job is to determine which semantic action(s) the code implements.
+
+## Semantic actions available
+
+{semantic_actions_list}
+
+## Code tool call
+
+Tool: {tool_name}
+Code / command:
+```
+{code}
+```
+
+Output (stdout):
+```
+{output}
+```
+
+## Instructions
+
+Identify which semantic action(s) from the list above this code implements.
+Focus on what the code *retrieves or computes*, not how it does it.
+
+Rules:
+- `get.data`: fetching data rows of a resource — with or without filtering, aggregation, or local computation on that data.
+- `get.resource.profile`: fetching the tabular schema/column structure of a resource.
+- `get.resource.info`: fetching basic file metadata (title, URL, format, size).
+- `get.dataset.info`: fetching dataset-level metadata.
+- `get.dataset.resources`: listing the resources of a dataset.
+- If the code does multiple things (e.g. fetch then analyze), list all matching actions.
+- If the code does general Python computation unrelated to data.gouv.fr retrieval, return `python_local_analysis`.
+- If no action matches with confidence ≥ 0.5, return `unclassified`.
+
+Respond with a JSON object:
+{{
+  "actions": [
+    {{"action": "<action_name_or_python_local_analysis_or_unclassified>", "confidence": <0.0–1.0>, "reason": "<brief explanation>"}}
+  ]
+}}
+Return only the JSON object, no other text.

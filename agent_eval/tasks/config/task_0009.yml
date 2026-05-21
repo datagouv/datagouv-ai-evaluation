@@ -37,63 +37,60 @@ evaluation_criteria:
       - criteria: >
           Agent mentions the dataset "Répertoire national des certifications professionnelles et répertoire spécifique"
           (RNCP) as an alternative source.
-        
+
     optimal:
-        
+
       - criteria: >
           Agent notes that "Répertoire national des certifications professionnelles et répertoire spécifique"
           is not accessible via the tabular API (no MCP query possible) and direct download through the stable URL is the practical workaround.
-        
+
       - criteria: >
           Agent provides the "Répertoire national des certifications professionnelles et répertoire spécifique"
           download URL or clear path to the CSV .zip and the documentation.
-        
 
-tool_chain:
-  - v_introduced: "1.0"
-    minimal:
-      chain: (search_dataservices > get_dataservice_info > get_dataservice_openapi_spec) + (search_datasets > get_dataset_info)
-      required_tools:
-        - name: search_dataservices
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to RNCP certification API or professional
-                qualification registry. e.g. "RNCP", "Certif Info", "certification professionnelle"
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "68629060ac286e24c94ba08c"  # API Certif Info 
-        - name: get_dataservice_openapi_spec
-          args:
-            - name: dataservice_id
-              strict_value: "68629060ac286e24c94ba08c" # (accès restreint)
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to RNCP national registry dataset.
-                e.g. "RNCP", "répertoire national certifications professionnelles"
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict_value: "5eebbc067a14b6fecc9c9976"  # RNCP dataset
-        
 
-    optimal:
-      chain: >
-        (search_dataservices > get_dataservice_info > get_dataservice_openapi_spec)
-        + (search_datasets > get_dataset_info > list_dataset_resources > get_resource_info)
-      required_tools:
-        
-        - name: list_dataset_resources
-          args:
-            - name: dataset_id
-              strict_value: "5eebbc067a14b6fecc9c9976"
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict_value: "42824627-145d-4f68-bd56-0b0aa04df392" #! Might change over time, to check
+action_chain:
+  minimal:
+    chain: (search.dataservices > get.dataservice.info > get.dataservice.openapi_spec) + (search.datasets > get.dataset.info)
+    required_actions:
+      - name: search.dataservices
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to RNCP certification API or professional
+              qualification registry. e.g. "RNCP", "Certif Info", "certification professionnelle"
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "68629060ac286e24c94ba08c"  # API Certif Info
+      - name: get.dataservice.openapi_spec
+        args:
+          - name: dataservice_id
+            strict_value: "68629060ac286e24c94ba08c"  # (accès restreint)
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to RNCP national registry dataset.
+              e.g. "RNCP", "répertoire national certifications professionnelles"
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "5eebbc067a14b6fecc9c9976"  # RNCP dataset
+
+  optimal:
+    chain: >
+      (search.dataservices > get.dataservice.info > get.dataservice.openapi_spec)
+      + (search.datasets > get.dataset.info > get.dataset.resources > get.resource.info)
+    required_actions:
+      - name: get.dataset.resources
+        args:
+          - name: dataset_id
+            strict_value: "5eebbc067a14b6fecc9c9976"
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "42824627-145d-4f68-bd56-0b0aa04df392"  #! Might change over time, to check
 
 resources:
   - type: dataservice
@@ -108,7 +105,7 @@ resources:
         params: {id: ~}
   - type: resource
     dataset_id: "5eebbc067a14b6fecc9c9976"
-    id: "42824627-145d-4f68-bd56-0b0aa04df392" # zip 
+    id: "42824627-145d-4f68-bd56-0b0aa04df392"  # zip
     checks:
       - fn: download_url_reachable
         params: {}

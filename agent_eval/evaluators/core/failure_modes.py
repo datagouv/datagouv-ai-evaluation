@@ -39,8 +39,8 @@ async def judge_failure_modes(
     agent_answer: str,
     failed_criteria: list[CriterionResult] | None = None,
     actual_tool_calls: list[dict[str, Any]] | None = None,
-    required_tools_minimal: list[dict[str, Any]] | None = None,
-    required_tools_optimal: list[dict[str, Any]] | None = None,
+    required_actions_minimal: list[dict[str, Any]] | None = None,
+    required_actions_optimal: list[dict[str, Any]] | None = None,
     failure_modes_path: Path | None = None,
 ) -> FailureModeOutput:
     """
@@ -62,8 +62,8 @@ async def judge_failure_modes(
         answer=agent_answer,
         failed_criteria=failed_criteria or [],
         actual_tool_calls=actual_tool_calls or [],
-        required_tools_minimal=required_tools_minimal or [],
-        required_tools_optimal=required_tools_optimal or [],
+        required_tools_minimal=required_actions_minimal or [],
+        required_tools_optimal=required_actions_optimal or [],
         failure_modes=failure_modes,
     )
 

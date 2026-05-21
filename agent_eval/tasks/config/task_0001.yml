@@ -27,19 +27,19 @@ evaluation_criteria:
       - criteria: >
           Agent explicitly states that no dedicated open dataset exists
           for neurology services or SEP specifically on data.gouv.fr.
-        
+
       - criteria: >
           Agent surfaces the API FHIR Annuaire Santé as a relevant
           source to query health facility data by specialty.
-        
+
       - criteria: >
           Agent mentions the "FINESS Extraction du Fichier des établissements" dataset as an alternative source
           for health facility registry data.
-        
+
       - criteria: >
           Agent does not present an unrelated health dataset
           as if it directly answers the question.
-        
+
 
     optimal:
       - criteria: >
@@ -47,83 +47,82 @@ evaluation_criteria:
           (static file, annual update, facility-level data) and the
           API FHIR Annuaire Santé (live API, FHIR standard, richer
           structured data) for the user's use case.
-        
+
       - criteria: >
-          Agent mentions the "FINESS Extraction du Fichier des établissements" dataset will 
+          Agent mentions the "FINESS Extraction du Fichier des établissements" dataset will
           be deprecated starting summer 2026 and that a new dataset will be available.
-        
+
       - criteria: >
-          Agent mentions the "FINESS Extraction du Fichier des établissements" dataset 
+          Agent mentions the "FINESS Extraction du Fichier des établissements" dataset
           has no resource accessible via Tabular API and cannot be queried via the MCP.
-        
+
       - criteria: >
           Agent notes that SEP-specific filtering seems not available
           on these results only and would require access to PMSI or clinical registries.
-        
+
       - criteria: >
           Agent mentions the "FINESS Extraction du Fichier des établissements" dataset
-          does not contain details about SEP or neurology services, 
+          does not contain details about SEP or neurology services,
           but only general information about the facilities.
       - criteria: >
           Agent explains what FHIR query parameters the user would need
           to filter by neurology specialty (e.g. specialty code) and
           points to the relevant endpoint in the API.
 
-tool_chain:
-  - v_introduced: "1.0"
-    minimal:
-      chain: (search_datasets > get_dataset_info) + (search_dataservices > get_dataservice_info)
-      required_tools:
-        - name: search_dataservices
-          args:
-            - name: query
-              criteria: Semantically relevant to SEP / neurology
-        - name: search_dataservices
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to broader health facility API or professional
-                directory: "FHIR", "FINESS", "annuaire santé", "établissements sanitaires"
-        - name: get_dataservice_info
-          args:
-              - name: dataservice_id
-                strict_value: "69402c6dd7dd82fdccc46429"  # API FHIR Annuaire Santé
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: Semantically relevant to SEP / neurology
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to broader health facility or professional
-                directory: "FHIR", "FINESS", "annuaire santé", "établissements sanitaires"
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict_value: "536c47d9a3a72933d8d1b3b2"
-
-    optimal:
-      chain: >
-        (search_datasets > get_dataset_info > list_resources > get_resource_info) 
-        + (search_dataservices > get_dataservice_info > get_dataservice_openapi_spec)
-      required_tools:
-        - name: list_resources
-          args:
-            - name: dataset_id
-              strict_value: "536c47d9a3a72933d8d1b3b2"  # FINESS
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict_value: "98f3161f-79ff-4f16-8f6a-6d571a80fea2" # FINESS 1st resource
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict_value: "2ce43ade-8d2c-4d1d-81da-ca06c82abc68" # FINESS 2nd resource
-        - name: get_dataservice_openapi_spec
-          args:
+action_chain:
+  minimal:
+    chain: (search.datasets > get.dataset.info) + (search.dataservices > get.dataservice.info)
+    required_actions:
+      - name: search.dataservices
+        args:
+          - name: query
+            criteria: Semantically relevant to SEP / neurology
+      - name: search.dataservices
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to broader health facility API or professional
+              directory: "FHIR", "FINESS", "annuaire santé", "établissements sanitaires"
+      - name: get.dataservice.info
+        args:
             - name: dataservice_id
-              strict_value: "69402c6dd7dd82fdccc46429"
+              strict_value: "69402c6dd7dd82fdccc46429"  # API FHIR Annuaire Santé
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: Semantically relevant to SEP / neurology
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to broader health facility or professional
+              directory: "FHIR", "FINESS", "annuaire santé", "établissements sanitaires"
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "536c47d9a3a72933d8d1b3b2"
+
+  optimal:
+    chain: >
+      (search.datasets > get.dataset.info > get.dataset.resources > get.resource.info)
+      + (search.dataservices > get.dataservice.info > get.dataservice.openapi_spec)
+    required_actions:
+      - name: get.dataset.resources
+        args:
+          - name: dataset_id
+            strict_value: "536c47d9a3a72933d8d1b3b2"  # FINESS
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "98f3161f-79ff-4f16-8f6a-6d571a80fea2"  # FINESS 1st resource
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "2ce43ade-8d2c-4d1d-81da-ca06c82abc68"  # FINESS 2nd resource
+      - name: get.dataservice.openapi_spec
+        args:
+          - name: dataservice_id
+            strict_value: "69402c6dd7dd82fdccc46429"
 
 resources:
   - type: dataservice

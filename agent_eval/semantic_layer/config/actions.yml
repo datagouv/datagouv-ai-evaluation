@@ -1,0 +1,165 @@
+# Semantic action definitions.
+# Each entry maps a framework-agnostic action name to concrete implementations
+# per framework (mcp, cli, api) and version (PEP 440 specifiers; "" = any version).
+#
+# action.object_type.object_facet naming convention — see vocabulary.md.
+#
+# Each tool/command/endpoint is an object {name, criteria?}.
+# criteria (optional): natural-language condition the LLM judge uses to
+#   confirm this entry applies to a specific tool call (e.g. disambiguate
+#   query_resource_data used as a profile proxy vs. a full data fetch).
+
+- search.datasets:
+    description: |
+      search dataset candidates based on a query and/or filters
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: search_datasets
+    cli:
+      - version: ""
+        commands: []
+    api:
+      - domain: "https://www.data.gouv.fr/api/1"
+        version: "==1"
+        endpoints:
+          - name: "GET /datasets/?q={query}"
+
+- search.dataservices:
+    description: |
+      search dataservice candidates based on a query and/or filters
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: search_dataservices
+    cli:
+      - version: ""
+        commands: []
+    api:
+      - domain: "https://www.data.gouv.fr/api/1"
+        version: "==1"
+        endpoints:
+          - name: "GET /dataservices/?q={query}"
+
+- get.dataset.info:
+    description: |
+      get metadata of a dataset based on dataset_id
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: get_dataset_info
+    cli:
+      - version: ""
+        commands:
+          - name: "datagouv dataset display"
+    api:
+      - domain: "https://www.data.gouv.fr/api/1"
+        version: "==1"
+        endpoints:
+          - name: "GET /datasets/{id}/"
+
+- get.dataset.resources:
+    description: |
+      list the resources tied to a dataset based on dataset_id
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: list_dataset_resources
+    cli:
+      - version: ""
+        commands:
+          - name: datagouv dataset get {dataset_id} | jq .resources[].title
+    api:
+      - domain: "https://www.data.gouv.fr/api/1"
+        version: "==1"
+        endpoints:
+          - name: "GET /datasets/{id}/resources/"
+
+- get.resource.info:
+    description: |
+      get basic metadata of a resource (title, URL, format, size, description)
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: get_resource_info
+    cli:
+      - version: ""
+        commands:
+          - name: "datagouv resource display"
+    api:
+      - domain: "https://www.data.gouv.fr/api/1"
+        version: "==1"
+        endpoints:
+          - name: "GET /datasets/{id}/resources/{rid}/"
+
+- get.resource.profile:
+    description: |
+      get a resource tabular profile (schema, columns, types, stats).
+      MCP access is a proxy via query_resource_data with small page_size and no other args;
+      native endpoint via tabular API.
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: query_resource_data
+            criteria: "page_size is set to a low value (<= 5) and no other filtering or aggregation args are provided"
+    cli:
+      - version: ""
+        commands: []
+    api:
+      - domain: "https://tabular-api.data.gouv.fr/api"
+        version: "==1"
+        endpoints:
+          - name: "GET /resources/{rid}/profile/"
+
+- get.data:
+    description: |
+      Get data rows of a specific resource — with or without filtering, aggregation,
+      or local computation on that data.
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: query_resource_data
+    cli:
+      - version: ""
+        commands:
+          - name: "datagouv resource download"
+    api:
+      - domain: "https://tabular-api.data.gouv.fr/api"
+        version: "==1"
+        endpoints:
+          - name: "GET /resources/{rid}/data/"
+      - domain: "https://www.data.gouv.fr/api/1"
+        version: "==1"
+        endpoints:
+          - name: "GET /datasets/r/{rid}"
+
+- get.dataservice.info:
+    description: |
+      get metadata of a dataservice (API) based on dataservice_id
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: get_dataservice_info
+    cli:
+      - version: ""
+        commands: []
+    api:
+      - domain: "https://www.data.gouv.fr/api/1"
+        version: "==1"
+        endpoints:
+          - name: "GET /dataservices/{id}/"
+
+- get.dataservice.openapi_spec:
+    description: |
+      get the OpenAPI specification of a dataservice
+    mcp:
+      - version: "<=0.2.24"
+        tools:
+          - name: get_dataservice_openapi_spec
+    cli:
+      - version: ""
+        commands: []
+    api:
+      - domain: "https://www.data.gouv.fr/api/1"
+        version: "==1"
+        endpoints: []  # no direct REST equivalent; fetched from dataservice's own spec_url

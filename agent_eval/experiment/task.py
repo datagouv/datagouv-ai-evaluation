@@ -7,11 +7,14 @@ from dotenv import load_dotenv, dotenv_values
 import opik
 from opik import opik_context
 from pydantic_ai import Agent
-from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.messages import ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.tools import Tool as PydanticTool
 from agent_eval.utils import get_model_config_object
+from agent_eval.experiment.agent import build_toolsets
+from agent_eval.experiment.agent.builder import CapabilityUnavailableError
+from agent_eval.experiment.agent.code import check_and_create_session
 
 load_dotenv(override=True)
 config = dotenv_values(".env")
@@ -22,48 +25,8 @@ logging.basicConfig(
 )
 
 
-class CapabilityUnavailableError(RuntimeError):
-    """Raised when a required agent capability cannot be loaded."""
-
-
-# ── Capability → toolset factory ──────────────────────────────────────────────
-
-
-def _build_toolsets(capabilities: list[str], run_config: dict[str, Any]) -> list:
-    """
-    Build pydantic-ai toolsets from capability names.
-    Raises CapabilityUnavailableError if a required extra is not installed,
-    so the caller can skip the eval rather than run with incomplete tooling.
-    """
-    toolsets = []
-    for cap in capabilities:
-        if cap == "mcp":
-            url = run_config.get("mcp_server_url")
-            if url:
-                toolsets.append(MCPServerStreamableHTTP(url=url, timeout=30))
-        elif cap == "web":
-            try:
-                from pydantic_ai_slim.tools.duckduckgo import DuckDuckGoSearchTool  # type: ignore
-
-                toolsets.append(DuckDuckGoSearchTool())
-            except ImportError as exc:
-                raise CapabilityUnavailableError(
-                    "Capability 'web' requires pydantic_ai_slim[duckduckgo]. "
-                    "Install it or remove 'web' from the capabilities list."
-                ) from exc
-        elif cap == "code":
-            try:
-                from pydantic_ai_slim.tools.python_eval import PythonEvalTool  # type: ignore
-
-                toolsets.append(PythonEvalTool())
-            except ImportError as exc:
-                raise CapabilityUnavailableError(
-                    "Capability 'code' requires pydantic_ai_slim[python]. "
-                    "Install it or remove 'code' from the capabilities list."
-                ) from exc
-        else:
-            logging.getLogger(__name__).warning("Unknown capability %r — skipped", cap)
-    return toolsets
+# CapabilityUnavailableError is re-exported from agent.builder for callers that import it here
+# build_toolsets is imported from agent_eval.experiment.agent
 
 
 # ── Tool call extraction ──────────────────────────────────────────────────────
@@ -130,15 +93,43 @@ async def run_agent(task: dict[str, Any]) -> AgentResult:
     logger = logging.getLogger(__name__)
 
     capabilities: list[str] = task.get("capabilities") or []
+
+    # code capability requires a persistent Docker container for the task's lifetime
+    if "code" in capabilities:
+        has_datagouv_cli = "datagouv-cli" in capabilities
+        session = check_and_create_session(has_datagouv_cli=has_datagouv_cli)
+        with session:
+            return await _run_agent_inner(task, capabilities, docker_session=session)
+    else:
+        return await _run_agent_inner(task, capabilities, docker_session=None)
+
+
+async def _run_agent_inner(
+    task: dict[str, Any],
+    capabilities: list[str],
+    docker_session,
+) -> AgentResult:
+    logger = logging.getLogger(__name__)
+
     # May raise CapabilityUnavailableError — caller handles it
-    toolsets = _build_toolsets(capabilities, task)
+    all_tools = build_toolsets(capabilities, task, docker_session=docker_session)
+    # pydantic-ai distinguishes individual Tool objects (tools=) from AbstractToolset
+    # objects like MCPServerStreamableHTTP (toolsets=)
+    individual_tools = [t for t in all_tools if isinstance(t, PydanticTool)]
+    toolsets = [t for t in all_tools if not isinstance(t, PydanticTool)]
+
     model = get_model_config_object(task["model"])
     agent_name = f"{task['model']['name']}-{task.get('mcp_server_url') or 'no-tools'}"
+    system_prompt = task.get("system_prompt", "")
+    skills_content = task.get("skills_content", "")
+    if skills_content:
+        system_prompt = f"{system_prompt}\n\n{skills_content}".strip()
     agent = Agent(
         name=agent_name,
         model=model,
-        toolsets=toolsets,
-        system_prompt=task.get("system_prompt", ""),
+        tools=individual_tools or None,
+        toolsets=toolsets or None,
+        system_prompt=system_prompt,
         instrument=True,
     )
 
@@ -237,6 +228,8 @@ def make_task(run_config: dict[str, Any]):
                         "available_tools_schema": result.available_tools_schema,
                         "latency_ms": result.latency_ms,
                         "token_usage": result.token_usage,
+                        "mcp_version": task_data.get("mcp_version"),
+                        "capabilities": task_data.get("capabilities", []),
                     }
                 }
             except CapabilityUnavailableError as exc:
@@ -264,6 +257,8 @@ def make_task(run_config: dict[str, Any]):
                 "available_tools_schema": task_data.get("mcp_tools_schema", []),
                 "latency_ms": 0.0,
                 "token_usage": 0,
+                "mcp_version": task_data.get("mcp_version"),
+                "capabilities": task_data.get("capabilities", []),
             }
         }
 

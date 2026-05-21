@@ -20,7 +20,10 @@ from agent_eval.evaluators.core.tool_usage import (
     compute_tool_usage_rates,
 )
 from agent_eval.evaluators.core.judge_model import JudgeModel
-from agent_eval.tasks.loader import RequiredTool, RequiredToolArg
+from agent_eval.semantic_layer import SemanticLayerResolver
+from agent_eval.tasks.loader import RequiredAction, RequiredActionArg
+
+_SEMANTIC_LAYER_DIR = Path(__file__).parents[2] / "semantic_layer" / "config"
 
 
 def _params_reason(output: ToolParamsOutput, actual_tool_calls: list[dict]) -> str:
@@ -42,19 +45,49 @@ def _params_reason(output: ToolParamsOutput, actual_tool_calls: list[dict]) -> s
     return "\n".join(lines)
 
 
-def _deserialize_required_tools(raw: list[dict]) -> list[RequiredTool]:
-    tools = []
+def _deserialize_required_actions(raw: list[dict]) -> list[RequiredAction]:
+    actions = []
     for t in raw:
         args = [
-            RequiredToolArg(
+            RequiredActionArg(
                 name=a.get("name", ""),
                 strict_value=a.get("strict_value"),
                 criteria=a.get("criteria"),
             )
             for a in (t.get("args") or [])
         ]
-        tools.append(RequiredTool(name=t["name"], args=args))
-    return tools
+        actions.append(RequiredAction(name=t["name"], args=args))
+    return actions
+
+
+def _resolve_to_concrete(
+    actions: list[RequiredAction],
+    framework: str,
+    version: str,
+    resolver: SemanticLayerResolver,
+) -> list[RequiredAction]:
+    """
+    Resolve each RequiredAction's semantic name to concrete tool/command names
+    and translate semantic arg names to framework-specific names.
+    One semantic action with multiple concrete names expands to one entry per name.
+    """
+    resolved: list[RequiredAction] = []
+    for action in actions:
+        tool_names = resolver.resolve_tool_names(action.name, framework, version)
+        if not tool_names:
+            # Unknown action or no mapping — keep semantic name as-is
+            tool_names = [action.name]
+        for tool_name in tool_names:
+            concrete_args = [
+                RequiredActionArg(
+                    name=resolver.resolve_arg_name(arg.name, framework, version),
+                    strict_value=arg.strict_value,
+                    criteria=arg.criteria,
+                )
+                for arg in action.args
+            ]
+            resolved.append(RequiredAction(name=tool_name, args=concrete_args))
+    return resolved
 
 
 class ToolUsageMetric(base_metric.BaseMetric):
@@ -75,12 +108,27 @@ class ToolUsageMetric(base_metric.BaseMetric):
         actual_tool_calls: list[dict[str, Any]] = out.get("actual_tool_calls") or []
         available_tools_schema: list[dict] = out.get("available_tools_schema") or []
 
-        raw_chain = (expected_output or {}).get("tool_chain", {})
-        required_minimal = _deserialize_required_tools(
-            (raw_chain.get("minimal") or {}).get("required_tools") or []
+        # Determine framework and version for semantic resolution
+        capabilities: list[str] = out.get("capabilities") or []
+        mcp_version: str = str(out.get("mcp_version") or "")
+        framework = next(
+            (c for c in capabilities if c in ("mcp", "web_search", "cli")),
+            "mcp",  # default
         )
-        required_optimal = _deserialize_required_tools(
-            (raw_chain.get("optimal") or {}).get("required_tools") or []
+        resolver = SemanticLayerResolver(_SEMANTIC_LAYER_DIR)
+
+        raw_chain = (expected_output or {}).get("action_chain", {})
+        required_minimal = _resolve_to_concrete(
+            _deserialize_required_actions(
+                (raw_chain.get("minimal") or {}).get("required_actions") or []
+            ),
+            framework, mcp_version, resolver,
+        )
+        required_optimal = _resolve_to_concrete(
+            _deserialize_required_actions(
+                (raw_chain.get("optimal") or {}).get("required_actions") or []
+            ),
+            framework, mcp_version, resolver,
         )
 
         # ── Deterministic counts ─────────────────────────────────────────────
@@ -119,6 +167,22 @@ class ToolUsageMetric(base_metric.BaseMetric):
         reason_minimal = _params_reason(params_minimal, actual_tool_calls)
         reason_optimal = _params_reason(params_optimal, actual_tool_calls)
 
+        def _serialize_matches(
+            matches: list,
+            required: list[RequiredAction],
+        ) -> list[dict]:
+            result = []
+            for m in matches:
+                req_name = required[m.gt_index].name if m.gt_index < len(required) else None
+                actual_id = actual_tool_calls[m.actual_index].get("tool_call_id") if m.actual_index < len(actual_tool_calls) else None
+                result.append({
+                    "tool_call_id": actual_id,
+                    "actual_tool_name": m.tool_name,
+                    "required_action": req_name,
+                    "correct_params": m.correct,
+                })
+            return result
+
         # ── Rates ────────────────────────────────────────────────────────────
         rates = compute_tool_usage_rates(
             basics=basics,
@@ -140,8 +204,16 @@ class ToolUsageMetric(base_metric.BaseMetric):
             # matched counts (TP)
             score_result.ScoreResult(name="matched_tool_names_minimal", value=float(basics.matched_tool_names_minimal)),
             score_result.ScoreResult(name="matched_tool_names_optimal", value=float(basics.matched_tool_names_optimal)),
-            score_result.ScoreResult(name="matched_tool_calls_minimal", value=float(matched_calls_minimal), reason=reason_minimal),
-            score_result.ScoreResult(name="matched_tool_calls_optimal", value=float(matched_calls_optimal), reason=reason_optimal),
+            score_result.ScoreResult(
+                name="matched_tool_calls_minimal", value=float(matched_calls_minimal),
+                reason=reason_minimal,
+                metadata={"call_to_required_action_matches": _serialize_matches(params_minimal.matches, required_minimal)},
+            ),
+            score_result.ScoreResult(
+                name="matched_tool_calls_optimal", value=float(matched_calls_optimal),
+                reason=reason_optimal,
+                metadata={"call_to_required_action_matches": _serialize_matches(params_optimal.matches, required_optimal)},
+            ),
             # rates — schema / success
             score_result.ScoreResult(name="schema_compliance_rate", value=rates.schema_compliance_rate),
             score_result.ScoreResult(name="tool_call_success_rate", value=rates.tool_call_success_rate),

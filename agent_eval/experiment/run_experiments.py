@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from opik.evaluation import evaluate
 
 from agent_eval.benchmark.loader import build_run_configurations
 from agent_eval.evaluators.opik.experiment_metrics import compute_experiment_metrics
+from agent_eval.evaluators.opik.action_mapper_metric import ActionCallMapperMetric
 from agent_eval.evaluators.opik.result_accuracy_metric import ResultAccuracyMetric
 from agent_eval.evaluators.opik.tool_usage_metric import ToolUsageMetric
 from agent_eval.evaluators.opik.trajectory_metric import TrajectoryAdherenceMetric
@@ -33,6 +35,7 @@ from agent_eval.experiment.task import make_task
 from agent_eval.tasks.loader import load_all_tasks, task_to_opik_item
 from agent_eval.tasks.resource_validator import raise_on_errors, validate_all_tasks
 from agent_eval.experiment.tracing import setup_tracing
+from agent_eval.experiment.agent.code import ensure_docker_image
 
 BENCHMARK_DIR = Path(__file__).parents[1] / "benchmark" / "config"
 TASKS_DIR = Path(__file__).parents[1] / "tasks" / "config"
@@ -55,6 +58,7 @@ def get_scoring_metrics(metrics: list[str], judge_model_path: Path) -> list:
         ResultAccuracyMetric(judge_model_path=judge_model_path)
     )  # includes efficiency + failure modes
     if "tool_usage" in metrics:
+        selected.append(ActionCallMapperMetric(judge_model_path=judge_model_path))
         selected.append(ToolUsageMetric(judge_model_path=judge_model_path))
         selected.append(TrajectoryAdherenceMetric(judge_model_path=judge_model_path))
     return selected
@@ -67,7 +71,11 @@ def get_or_create_dataset(
     client: opik.Opik, tasks, evaluation_type: str
 ) -> opik.Dataset:
     name = f"datagouv_mcp_{evaluation_type}"
-    dataset = client.get_or_create_dataset(name=name)
+    project_name = os.environ.get("OPIK_PROJECT_NAME")
+    dataset = client.get_or_create_dataset(name=name, project_name=project_name)
+    # Sync server-side hashes so items with unchanged content are skipped.
+    # This avoids creating a new dataset version on every run.
+    dataset.__internal_api__sync_hashes__()
     items = [task_to_opik_item(task) for task in tasks]
     dataset.insert(items)
     return dataset
@@ -168,6 +176,13 @@ def main() -> None:
     logger.info("Active system prompts: %s", active_prompts)
     logger.info("Building %d run configurations…", len(run_configs_raw))
     run_configs = asyncio.run(build_all_run_configs(run_configs_raw))
+
+    # ── Docker image pre-flight ───────────────────────────────────────────────
+    if any("code" in (rc.get("capabilities") or []) for rc in run_configs):
+        has_datagouv_cli = any(
+            "datagouv-cli" in (rc.get("capabilities") or []) for rc in run_configs
+        )
+        ensure_docker_image(has_datagouv_cli=has_datagouv_cli)
 
     if args.dry_run:
         for rc in run_configs:

@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from agent_eval.tasks.loader import RequiredTool
+from agent_eval.tasks.loader import RequiredAction
 
 
 @dataclass
@@ -57,8 +57,8 @@ def _is_error(result: Any) -> bool:
 
 def compute_tool_usage_basics(
     actual_tool_calls: list[dict[str, Any]],
-    required_tools_minimal: list[RequiredTool],
-    required_tools_optimal: list[RequiredTool],
+    required_tools_minimal: list[RequiredAction],
+    required_tools_optimal: list[RequiredAction],
     schema_compliant_count: int = 0,
 ) -> ToolUsageBasics:
     """

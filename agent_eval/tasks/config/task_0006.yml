@@ -37,59 +37,58 @@ evaluation_criteria:
       - criteria: >
           Agent explains the non-residential needs to be downloaded, and explains how to filter it.
 
-tool_chain:
-  - v_introduced: "1.0"
-    minimal:
-      chain: search_datasets > get_dataset_info > list_dataset_resources > get_resource_info
-      required_tools:
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to building permits in France.
-                e.g. "permis de construire"
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict_value: "689c42fa521ccf80ce954f83"
-        - name: list_dataset_resources
-          args:
-            - name: dataset_id
-              strict_value: "689c42fa521ccf80ce954f83"
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict_value: "65a9e264-7a20-46a9-9d98-66becb817bc3" 
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict_value: "8f23d65f-7142-4ac5-94c1-077b028255bf" 
+action_chain:
+  minimal:
+    chain: search.datasets > get.dataset.info > get.dataset.resources > get.resource.info
+    required_actions:
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to building permits in France.
+              e.g. "permis de construire"
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "689c42fa521ccf80ce954f83"
+      - name: get.dataset.resources
+        args:
+          - name: dataset_id
+            strict_value: "689c42fa521ccf80ce954f83"
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "65a9e264-7a20-46a9-9d98-66becb817bc3"
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "8f23d65f-7142-4ac5-94c1-077b028255bf"
 
-    optimal:
-      chain: search_datasets > get_dataset_info > list_dataset_resources > query_resource_data
-      required_tools:
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict_value: "b7ebaa95-a2ff-4412-8911-a655dd146d44" # Dict var logements
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict_value: "c863c9e3-070c-49e2-91de-92c8d58cc807" # Dic var locaux
-        - name: query_resource_data
-          args:
-            - name: resource_id
-              strict_value: "b7ebaa95-a2ff-4412-8911-a655dd146d44" # Dict var logements
-        - name: query_resource_data
-          args:
-            - name: resource_id
-              strict_value: "c863c9e3-070c-49e2-91de-92c8d58cc807" # Dic var locaux
-        - name: query_resource_data
-          args:
-            - name: resource_id
-              strict_value: "65a9e264-7a20-46a9-9d98-66becb817bc3"  # résidentiel
-            - name: filters
-              criteria: Filter on commune column (COMM) equal to "31557" # Code commune "Tournefeuille"
+  optimal:
+    chain: search.datasets > get.dataset.info > get.dataset.resources > get.data
+    required_actions:
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "b7ebaa95-a2ff-4412-8911-a655dd146d44"  # Dict var logements
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "c863c9e3-070c-49e2-91de-92c8d58cc807"  # Dict var locaux
+      - name: get.data
+        args:
+          - name: resource_id
+            strict_value: "b7ebaa95-a2ff-4412-8911-a655dd146d44"  # Dict var logements
+      - name: get.data
+        args:
+          - name: resource_id
+            strict_value: "c863c9e3-070c-49e2-91de-92c8d58cc807"  # Dict var locaux
+      - name: get.data
+        args:
+          - name: resource_id
+            strict_value: "65a9e264-7a20-46a9-9d98-66becb817bc3"  # résidentiel
+          - name: filters
+            criteria: Filter on commune column (COMM) equal to "31557"  # Code commune "Tournefeuille"
 
 resources:
   - type: dataset

@@ -12,19 +12,19 @@ from opik.evaluation.metrics import base_metric, score_result
 from agent_eval.evaluators.core.trajectory import compute_trajectory_adherence
 from agent_eval.evaluators.core.judge_model import JudgeModel
 from agent_eval.tasks.loader import (
-    RequiredTool,
-    RequiredToolArg,
-    ToolChain,
-    ToolChainLevel,
+    RequiredAction,
+    RequiredActionArg,
+    ActionChain,
+    ActionChainLevel,
 )
 
 
-def _deserialize_level(raw: dict) -> ToolChainLevel:
-    tools = [
-        RequiredTool(
+def _deserialize_level(raw: dict) -> ActionChainLevel:
+    actions = [
+        RequiredAction(
             name=t["name"],
             args=[
-                RequiredToolArg(
+                RequiredActionArg(
                     name=a.get("name", ""),
                     strict_value=a.get("strict_value"),
                     criteria=a.get("criteria"),
@@ -32,9 +32,9 @@ def _deserialize_level(raw: dict) -> ToolChainLevel:
                 for a in (t.get("args") or [])
             ],
         )
-        for t in (raw.get("required_tools") or [])
+        for t in (raw.get("required_actions") or [])
     ]
-    return ToolChainLevel(chain=raw.get("chain") or "", required_tools=tools)
+    return ActionChainLevel(chain=raw.get("chain") or "", required_actions=actions)
 
 
 class TrajectoryAdherenceMetric(base_metric.BaseMetric):
@@ -52,8 +52,8 @@ class TrajectoryAdherenceMetric(base_metric.BaseMetric):
         user_prompt = (input or {}).get("prompt", "")
         actual_tool_calls = (output or {}).get("actual_tool_calls") or []
 
-        raw_chain = (expected_output or {}).get("tool_chain", {})
-        tool_chain = ToolChain(
+        raw_chain = (expected_output or {}).get("action_chain", {})
+        action_chain = ActionChain(
             minimal=_deserialize_level(raw_chain.get("minimal") or {}),
             optimal=_deserialize_level(raw_chain.get("optimal") or {}),
         )
@@ -61,7 +61,7 @@ class TrajectoryAdherenceMetric(base_metric.BaseMetric):
         result = asyncio.run(
             compute_trajectory_adherence(
                 model=self._judge_model,
-                tool_chain=tool_chain,
+                action_chain=action_chain,
                 actual_tool_calls=actual_tool_calls,
                 user_prompt=user_prompt,
             )

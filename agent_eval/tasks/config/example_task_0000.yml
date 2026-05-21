@@ -25,28 +25,30 @@ evaluation_criteria:
       # e.g. "X can be found this way [...] or alternatively [...]. Here is X: [...]"
       - criteria: # str
 
-tool_chain:
-  # If a chain becomes obsolete, add a new entry with the new v_introduced.
-  - v_introduced: "1.0"
-    minimal:
-      chain: # e.g. Tool A > (Tool B + Tool C) > Tool D : run A, then B and C in parallel, then D
-             # or (Tool A > Tool B) + (Tool C > Tool D) : run A then B, while C then D in parallel
-             # Each tool listed once even if called multiple times with different params.
-      required_tools:
-        - name: # exact tool name
-          args:
-            - name: # arg name
-              strict_value: ~ # exact deterministic value — fill if criteria is empty
-              criteria: ~     # semantic description — fill if strict_value is empty
-    optimal:
-      chain: # Complete chain — order may differ from minimal
-      required_tools:
-        # Only additional tools not already listed in minimal
-        - name: # exact tool name
-          args:
-            - name: # arg name
-              strict_value: ~
-              criteria: ~
+action_chain:
+  # Framework-agnostic semantic actions. Resolved to concrete tool/endpoint names
+  # at evaluation time via the semantic layer (semantic_layer.yml).
+  # Use semantic action names: search.datasets, get.dataset.info, get.dataset.resources,
+  # get.resource.info, get.resource.profile, get.data, get.data,
+  # search.dataservices, get.dataservice.info, get.dataservice.openapi_spec
+  minimal:
+    chain: # e.g. search.datasets > get.dataset.info > get.data
+           # or (search.datasets > get.dataset.info) + (search.dataservices > get.dataservice.info)
+    required_actions:
+      - name: # semantic action name (e.g. search.datasets)
+        args:
+          - name: # semantic arg name (e.g. query, dataset_id, resource_id, dataservice_id)
+            strict_value: ~ # exact deterministic value — fill if criteria is empty
+            criteria: ~     # semantic description — fill if strict_value is empty
+  optimal:
+    chain: # Complete chain — order may differ from minimal
+    required_actions:
+      # Only additional actions not already listed in minimal
+      - name: # semantic action name
+        args:
+          - name: # semantic arg name
+            strict_value: ~
+            criteria: ~
 
 resources:
   # Run before evaluation to catch silent failures (archived dataset, changed title, etc.)

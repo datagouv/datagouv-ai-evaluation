@@ -79,63 +79,62 @@ evaluation_criteria:
           démographie) for readability, and for "API La bonne alternance" clarifies
           its focus (offres d'emploi et formations en alternance, apprentissage) so
           the user can judge relevance to their pedagogical tool.
-        
 
-tool_chain:
-  - v_introduced: "1.0"
-    minimal:
-      chain: search_dataservices > get_dataservice_info
-      required_tools:
-        - name: search_dataservices
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to education open data API.
-                e.g. "éducation nationale API", "statistiques éducatives"
-        - name: search_dataservices
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to cultural heritage or cultural places.
-                e.g. "patrimoine culturel", "culture ministère", "lieux culturels"
-        - name: search_dataservices
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to local demographic data by commune.
-                e.g. "données locales communes", "démographie INSEE"
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "672cf9be6136ac3468829101"  # API données ouvertes Éducation Nationale
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "672cfc6bfc959adaf03a4d00"  # API Démarches Ministère Culture
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "672cf9c3c3488a0c533f709f"  # API Diffusion Données Locales (INSEE)
 
-    optimal:
-      chain: search_dataservices > get_dataservice_info > get_dataservice_openapi_spec
-      required_tools:
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "6690aa63b75843d0411ff6af"  # Explore API v2 éducation
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "672cfc39db38d1541be152f8"  # scanR
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "672cf64ff8b5d52b76263394"  # API La bonne alternance (compte requis)
-        - name: get_dataservice_openapi_spec
-          args:
-            - name: dataservice_id
-              criteria: Any one of the confirmed APIs above
+action_chain:
+  minimal:
+    chain: search.dataservices > get.dataservice.info
+    required_actions:
+      - name: search.dataservices
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to education open data API.
+              e.g. "éducation nationale API", "statistiques éducatives"
+      - name: search.dataservices
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to cultural heritage or cultural places.
+              e.g. "patrimoine culturel", "culture ministère", "lieux culturels"
+      - name: search.dataservices
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to local demographic data by commune.
+              e.g. "données locales communes", "démographie INSEE"
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "672cf9be6136ac3468829101"  # API données ouvertes Éducation Nationale
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "672cfc6bfc959adaf03a4d00"  # API Démarches Ministère Culture
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "672cf9c3c3488a0c533f709f"  # API Diffusion Données Locales (INSEE)
+
+  optimal:
+    chain: search.dataservices > get.dataservice.info > get.dataservice.openapi_spec
+    required_actions:
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "6690aa63b75843d0411ff6af"  # Explore API v2 éducation
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "672cfc39db38d1541be152f8"  # scanR
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "672cf64ff8b5d52b76263394"  # API La bonne alternance (compte requis)
+      - name: get.dataservice.openapi_spec
+        args:
+          - name: dataservice_id
+            criteria: Any one of the confirmed APIs above
 
 resources:
   - type: dataservice

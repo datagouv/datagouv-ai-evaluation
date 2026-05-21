@@ -27,7 +27,7 @@ from pydantic_ai import Agent
 from agent_eval.evaluators.core.schema_compliance import check_schema_compliance
 from agent_eval.evaluators.core.prompts import tool_parameter_correctness as prompts
 from agent_eval.evaluators.core.judge_model import JudgeModel
-from agent_eval.tasks.loader import RequiredTool
+from agent_eval.tasks.loader import RequiredAction
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class ToolParamsOutput:
 async def _judge_tool_group(
     model: JudgeModel,
     tool_name: str,
-    gt_calls: list[RequiredTool],
+    gt_calls: list[RequiredAction],
     actual_calls: list[dict[str, Any]],
     available_tools_schema: list[dict],
     user_prompt: str,
@@ -145,7 +145,7 @@ async def judge_tool_params(
     model: JudgeModel,
     user_prompt: str,
     actual_tool_calls: list[dict[str, Any]],
-    required_tools: list[RequiredTool],
+    required_tools: list[RequiredAction],
     available_tools_schema: list[dict],
 ) -> ToolParamsOutput:
     """
@@ -153,7 +153,7 @@ async def judge_tool_params(
     Groups calls by tool name and runs one judge call per group concurrently.
     Returns merged ToolParamsOutput across all groups.
     """
-    gt_by_name: dict[str, list[RequiredTool]] = defaultdict(list)
+    gt_by_name: dict[str, list[RequiredAction]] = defaultdict(list)
     for t in required_tools:
         gt_by_name[t.name].append(t)
 

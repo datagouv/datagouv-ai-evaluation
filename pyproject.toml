@@ -18,7 +18,12 @@ dependencies = [
     "httpx>=0.27.0",
     "python-dotenv>=1.0.0",
     "logfire>=4.32.1",
+    "packaging>=24.0",
+    "ddgs>=9.14.4",
 ]
+
+[project.optional-dependencies]
+web = ["ddgs>=9.0"]
 
 [dependency-groups]
 dev = ["black>=26.1.0", "ruff>=0.15.4"]

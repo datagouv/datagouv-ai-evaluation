@@ -140,8 +140,73 @@ Three legacy evaluator files were deleted (`evaluators/experiment_metrics.py`, `
 - add good mcp versions number # done
 - remove the backoff factor from latency calculation to avoid biaising latency results for some providers : compute net_lantecy_ms for lantency_ms now # done
 
-- consolidate trough semantic layer for tooling and trajectory
-- integrate for skills and cli benchmark
+---
+
+## Semantic action layer
+
+Task YAMLs define ground-truth tool sequences using **semantic action names** (`search.datasets`, `get.dataset.info`, etc.) rather than MCP tool names. The semantic layer (`agent_eval/benchmark/config/semantic_layer.yml`) maps (action, framework, version) → concrete tool names at evaluation time.
+
+`SemanticLayerResolver` (`agent_eval/evaluators/core/semantic_layer.py`) handles this resolution via `packaging.specifiers.SpecifierSet` for version matching. `ToolUsageMetric.score()` calls `_resolve_to_concrete()` before matching actual calls against ground truth.
+
+Semantic action → MCP tool name mapping (version `<=0.2.24`):
+- `search.datasets` → `search_datasets`
+- `search.dataservices` → `search_dataservices`
+- `get.dataset.info` → `get_dataset_info`
+- `get.dataset.resources` → `list_dataset_resources`
+- `get.resource.info` → `get_resource_info`
+- `get.resource.profile` → `query_resource_data` (proxy; no dedicated MCP tool)
+- `get.data` → `query_resource_data` (all rows, no filtering)
+- `analyze.data` → `query_resource_data` (with filters/aggregations)
+- `get.dataservice.info` → `get_dataservice_info`
+- `get.dataservice.openapi_spec` → `get_dataservice_openapi_spec`
+
+`get.resource.info` (basic metadata) and `get.resource.profile` (tabular schema) are **distinct actions** even though both hit `query_resource_data` in MCP. The API framework uses different endpoints: `GET /datasets/{id}/resources/{rid}/` vs `GET /resources/{rid}/profile/`.
+
+---
+
+## Capabilities vs. semantic actions
+
+**Capabilities** (`mcp`, `web_search`, `code`, `skills`) are agent execution modes. Semantic actions are framework-agnostic intentions. The key distinction:
+
+- **`mcp` capability**: directly implements semantic actions via named MCP tool calls. Each semantic action maps to a concrete tool name (see mapping above).
+- **`web_search` capability**: gives the agent DuckDuckGo search + HTML page fetching for **discovery and browsing**. It does NOT implement semantic actions — the URL blacklist specifically prevents fetching data API endpoints. The agent can browse dataset HTML pages (e.g. `https://www.data.gouv.fr/datasets/xxx`) but cannot call the REST API through `http_fetch`.
+- **`code` capability**: gives the agent Docker-based Python execution + CLI, which can fetch data URLs internally (only the result reaches LLM context).
+- **`skills` capability**: system prompt injection only — no tool calls.
+
+### `web_search` capability
+
+Two tools: `duckduckgo_search_tool()` (from `pydantic_ai.common_tools.duckduckgo`, requires `ddgs` package) + custom `http_fetch` tool (httpx-based).
+
+**URL prefix blacklist** — prevents large data payloads in LLM context:
+- `https://www.data.gouv.fr/api/` (REST API paths)
+- `https://tabular-api.data.gouv.fr/` (entire tabular API domain)
+- `https://static.data.gouv.fr/resources/` (large static files)
+
+HTML pages at `https://www.data.gouv.fr/` (dataset pages, search result pages) are allowed; only the `/api/` path prefix is blocked. This means `web_search` agents can browse and discover datasets but cannot query structured data directly. Response is truncated at 50,000 chars before returning to the LLM.
+
+### `code` capability — Docker-based local execution
+
+Two tools running in the same Docker image (`datagouv-agent:latest`):
+- `execute_python(code: str) → str` — arbitrary Python; only stdout returns to LLM
+- `execute_cli(command: str) → str` — whitelisted commands only: `datagouv`, `python`/`python3`, `ls`, `mkdir`, `rm`, `rmdir`, `cp`, `mv`, `cat`, `echo`, `touch`, `curl`, `wget`, `pip`/`pip3`
+
+Docker flags: `--cap-drop ALL --no-new-privileges --memory 512m --cpus 1 --network bridge`
+
+**Why Docker?** Provider-native `CodeExecutionTool` doesn't work with Albert API and has no internet access. Docker is universal (all providers) and the bridge network lets code fetch data APIs directly — only the result (stdout) reaches the LLM context, avoiding the token explosion from piping large files through `web_search`.
+
+**Security model:** `--cap-drop ALL` removes all Linux capabilities (no raw sockets, no privilege escalation, no port binding). No host volume mounts. Bridge network isolates the container from host loopback but allows outbound internet. CLI whitelist prevents arbitrary shell commands at application level; Docker handles OS-level isolation.
+
+**Docker image build:** `docker build -t datagouv-agent:latest agent_eval/experiment/agent/`
+
+**Data flow comparison:**
+- `web_search → http_fetch → large JSON` → **blocked**: API URLs are blacklisted; even if not blocked, the 50K char cap would truncate large responses
+- `code → execute_python("import requests; data = requests.get(url).json(); print(len(data['data']))")` → **good**: only the count/result reaches LLM context; full data stays in container
+
+### `skills` capability
+
+System prompt injection only — no tool calls, no action chain entries. Skills content is loaded from `benchmark/config/skills/` via `load_skills_prompt()` and appended to the agent's system prompt by `run_config.py` before the experiment runs.
+
+---
 
 challenges:
 - many platforms, open source x all criteria

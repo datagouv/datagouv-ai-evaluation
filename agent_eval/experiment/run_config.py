@@ -9,6 +9,7 @@ from typing import Any
 
 from agent_eval.benchmark.loader import RunConfiguration
 from agent_eval.experiment.mcp_tools_getter import get_mcp_tools
+from agent_eval.experiment.agent.skills import load_skills_prompt
 
 
 async def _fetch_tools_by_url(urls: list[str]) -> dict[str, tuple[str, list[str], list[dict]]]:
@@ -48,6 +49,10 @@ async def build_all_run_configs(
         else:
             description, names, schema = "", [], []
 
+        skills_content = ""
+        if "skills" in (rc.capabilities or []):
+            skills_content = load_skills_prompt()
+
         run_configs.append({
             "evaluation_type": rc.evaluation_type,
             "capabilities": rc.capabilities,
@@ -60,6 +65,7 @@ async def build_all_run_configs(
             "mcp_tools_description": description,
             "mcp_tool_names": names,
             "mcp_tools_schema": schema,
+            "skills_content": skills_content,
         })
 
     return run_configs

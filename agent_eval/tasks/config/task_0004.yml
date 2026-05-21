@@ -27,58 +27,54 @@ evaluation_criteria:
     minimal:
       - criteria: >
           Agent finds the dataset "Annuaire des diagnostiqueurs immobiliers".
-        
+
       - criteria: >
           Agent reads the dataset description and conveys the nature of the data
           (list of certificate holders).
-        
+
       - criteria: >
           Agent provides a direct download link or tabular query path
           so the collectivité can access the full list.
-        
+
 
     optimal:
       - criteria: >
           Agent explains that filtering the list by commune or name is possible.
       - criteria: >
-          Agent explains that it requires filtering by a known certificate number 
+          Agent explains that it requires filtering by a known certificate number
           as entry point first.
-        
 
-        
 
-tool_chain:
-  - v_introduced: "1.0"
-    minimal:
-      chain: search_datasets > get_dataset_info > list_dataset_resources > get_resource_info
-      required_tools:
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to certified persons for structural building diagnostics.
-                e.g. "diagnostic structurel", "habilitation", "L 126-6-1", "immeubles habitation"
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict_value: "5bc5df57634f417a900a5ed0"
-        - name: list_dataset_resources
-          args:
-            - name: dataset_id
-              strict_value: "5bc5df57634f417a900a5ed0"
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict_value: "7987214d-949e-4245-b005-5cc4e7a5df36"
+action_chain:
+  minimal:
+    chain: search.datasets > get.dataset.info > get.dataset.resources > get.resource.info
+    required_actions:
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to certified persons for structural building diagnostics.
+              e.g. "diagnostic structurel", "habilitation", "L 126-6-1", "immeubles habitation"
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "5bc5df57634f417a900a5ed0"
+      - name: get.dataset.resources
+        args:
+          - name: dataset_id
+            strict_value: "5bc5df57634f417a900a5ed0"
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "7987214d-949e-4245-b005-5cc4e7a5df36"
 
-    optimal:
-      chain: search_datasets > get_dataset_info > list_dataset_resources > get_resource_info > query_resource_data
-      required_tools:
-        - name: query_resource_data
-          args:
-            - name: resource_id
-              strict_value: "7987214d-949e-4245-b005-5cc4e7a5df36"
-
+  optimal:
+    chain: search.datasets > get.dataset.info > get.dataset.resources > get.resource.info > get.data
+    required_actions:
+      - name: get.data
+        args:
+          - name: resource_id
+            strict_value: "7987214d-949e-4245-b005-5cc4e7a5df36"
 
 
 resources:

@@ -29,7 +29,7 @@ evaluation_criteria:
           Agent identifies the dataset "Recensement des équipements sportifs, espaces et sites de pratiques".
       - criteria: >
           Agent identifies the dataset "Equipements sportifs et lieux de pratiques en région Occitanie".
-      - criteria: > 
+      - criteria: >
           Agent identifies the API "API Data ES".
       - criteria: >
           Agent identifies the dataset "Base Sirene des entreprises et de leurs établissements (SIREN, SIRET)"
@@ -58,72 +58,70 @@ evaluation_criteria:
           Agent verifies and reports the last update date of the queried resource.
 
 
-tool_chain:
-  - v_introduced: "1.0"
-    minimal:
-      chain: >
-        (search_datasets > get_dataset_info)
-        + (search_dataservices > get_dataservice_info)
-      required_tools:
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to sports establishments registry.
-                e.g. "établissements sportifs", "activité physique sportive"
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to broader establishments registry "SIRENE"
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict_value: "53699ebba3a729239d205f4f"  # base nationale sports (tabular)
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict_value: "5b7ffc618b4c4169d30727e0"  # SIRENE
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict_value: "67450feab4e83dc75f7733d4"  # Occitanie
-        - name: search_dataservices
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to broader establishments registry "SIRENE"
-        - name: search_dataservices
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to sports establishments registry.
-                e.g. "établissements sportifs", "activité physique sportive"
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "672cf66f5e554cca4a916026" # API Data ES
-        - name: get_dataservice_info
-          args:
-            - name: dataservice_id
-              strict_value: "6661e60fda535e9773c510ca" # SIRENE
+action_chain:
+  minimal:
+    chain: >
+      (search.datasets > get.dataset.info)
+      + (search.dataservices > get.dataservice.info)
+    required_actions:
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to sports establishments registry.
+              e.g. "établissements sportifs", "activité physique sportive"
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to broader establishments registry "SIRENE"
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "53699ebba3a729239d205f4f"  # base nationale sports (tabular)
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "5b7ffc618b4c4169d30727e0"  # SIRENE
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "67450feab4e83dc75f7733d4"  # Occitanie
+      - name: search.dataservices
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to broader establishments registry "SIRENE"
+      - name: search.dataservices
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to sports establishments registry.
+              e.g. "établissements sportifs", "activité physique sportive"
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "672cf66f5e554cca4a916026"  # API Data ES
+      - name: get.dataservice.info
+        args:
+          - name: dataservice_id
+            strict_value: "6661e60fda535e9773c510ca"  # SIRENE
 
-
-    optimal:
-      chain: >
-        ((search_datasets > get_dataset_info > list_dataset_resources > get_resource_info) > query_resource_data))
-        + (search_dataservices > get_dataservice_info)
-      required_tools:
-        - name: list_dataset_resources
-          args:
-            - name: dataset_id
-              strict_value: "53699ebba3a729239d205f4f"
-        - name: query_resource_data
-          args:
-            - name: resource_id
-              strict_value: "ea4f5879-af40-4e3e-949d-812d6eeb5e02"
-            - name: filters
-              criteria: Filter on department column for Gers (dep_code=32 or equivalent)
+  optimal:
+    chain: >
+      ((search.datasets > get.dataset.info > get.dataset.resources > get.resource.info) > get.data)
+      + (search.dataservices > get.dataservice.info)
+    required_actions:
+      - name: get.dataset.resources
+        args:
+          - name: dataset_id
+            strict_value: "53699ebba3a729239d205f4f"
+      - name: get.data
+        args:
+          - name: resource_id
+            strict_value: "ea4f5879-af40-4e3e-949d-812d6eeb5e02"
+          - name: filters
+            criteria: Filter on department column for Gers (dep_code=32 or equivalent)
 
 resources:
   - type: dataset
@@ -132,7 +130,7 @@ resources:
       - fn: same_title_description
         params: {id: ~}
   - type: resource
-    dataset_id: "53699ebba3a729239d205f4f" 
+    dataset_id: "53699ebba3a729239d205f4f"
     id: "ea4f5879-af40-4e3e-949d-812d6eeb5e02"
     checks:
       - fn: tabular_api_available
