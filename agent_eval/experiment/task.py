@@ -128,7 +128,7 @@ async def _run_agent_inner(
     agent = Agent(
         name=agent_name,
         model=model,
-        tools=individual_tools or None,
+        tools=individual_tools,  # pydantic-ai accepts empty list; None causes TypeError
         toolsets=toolsets or None,
         system_prompt=system_prompt,
         instrument=True,
@@ -173,6 +173,24 @@ def _log_tool_span(name: str, arguments: Any, result: Any) -> None:
 
 
 @opik.track(type="llm", capture_input=False, capture_output=False)
+def _log_thinking_span(thinking: str) -> None:
+    """One Opik child span for the model's thinking block, nested under the LLM-turn span.
+
+    Uses type="llm" so Opik's UI renders the output in the chat-style text panel
+    (type="general" only shows a raw JSON blob with no dedicated text area).
+    The "output" key is used because Opik's LLM span renderer surfaces that key
+    as the primary display text.
+    """
+    logger = logging.getLogger(__name__)
+    logger.debug("Logging thinking span (%d chars)", len(thinking))
+    opik_context.update_current_span(
+        name="thinking",
+        input={},
+        output={"output": thinking},
+    )
+
+
+@opik.track(type="llm", capture_input=False, capture_output=False)
 def _log_llm_turn(
     turn: int,
     text: str,
@@ -181,20 +199,15 @@ def _log_llm_turn(
     tool_returns: dict,
     model: str,
 ) -> None:
-    """One Opik LLM span per ModelResponse, with tool calls nested beneath it."""
-    output: dict[str, Any] = {}
-    if thinking:
-        output["thinking"] = thinking
-    if text:
-        output["text"] = text
-    if tool_parts:
-        output["tool_calls"] = [tc.tool_name for tc in tool_parts]
+    """One Opik LLM span per ModelResponse, with thinking and tool calls nested beneath it."""
     opik_context.update_current_span(
         name=f"llm_turn_{turn}",
         input={},
-        output=output,
+        output={"text": text} if text else {},
         model=model,
     )
+    if thinking:
+        _log_thinking_span(thinking)
     for tc in tool_parts:
         try:
             args = tc.args_as_dict()
@@ -213,6 +226,11 @@ def _log_messages_as_spans(messages: list, model: str) -> None:
     with tool calls as child tool spans.  This surfaces the full thinking chain
     (text before/between/after tool calls) in the Opik trace tree.
     """
+    diag_logger = logging.getLogger(__name__)
+    diag_logger.debug("[msg-diag] _log_messages_as_spans called: %d messages total", len(messages))
+    for i, msg in enumerate(messages):
+        diag_logger.debug("[msg-diag]   msg[%d] type=%s", i, type(msg).__name__)
+
     # Pre-collect all tool return payloads keyed by tool_call_id
     tool_returns: dict[str, Any] = {}
     for msg in messages:
@@ -228,11 +246,27 @@ def _log_messages_as_spans(messages: list, model: str) -> None:
         text_parts = [p for p in parts if isinstance(p, TextPart)]
         thinking_parts = [p for p in parts if isinstance(p, ThinkingPart)]
         tool_parts = [p for p in parts if isinstance(p, ToolCallPart)]
+        other_parts = [p for p in parts if not isinstance(p, (TextPart, ThinkingPart, ToolCallPart, ToolReturnPart))]
+        diag_logger.debug(
+            "[msg-diag] ModelResponse: text=%d thinking=%d tool_call=%d other=%s",
+            len(text_parts),
+            len(thinking_parts),
+            len(tool_parts),
+            [f"{type(p).__name__}({getattr(p, 'content', '')[:40]!r})" for p in other_parts],
+        )
+        if text_parts:
+            diag_logger.debug("[msg-diag]   TextPart[0][:80]: %r", text_parts[0].content[:80])
+        if thinking_parts:
+            diag_logger.debug(
+                "[msg-diag]   ThinkingPart[0]: content_len=%d content[:80]=%r",
+                len(thinking_parts[0].content),
+                thinking_parts[0].content[:80],
+            )
         if not text_parts and not thinking_parts and not tool_parts:
             continue
         turn += 1
         text = "\n".join(p.content for p in text_parts)
-        thinking = "\n".join(p.thinking for p in thinking_parts)
+        thinking = "\n".join(p.content for p in thinking_parts)
         _log_llm_turn(turn, text, thinking, tool_parts, tool_returns, model)
 
 
@@ -308,6 +342,7 @@ def make_task(run_config: dict[str, Any]):
                     _MAX_RETRIES,
                     exc,
                     wait,
+                    exc_info=True,
                 )
                 time.sleep(wait)
 

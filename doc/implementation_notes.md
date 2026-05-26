@@ -98,6 +98,32 @@ evaluation_task
 
 **Important**: `logfire` is still installed as a dependency (pydantic-ai uses it for `instrument=True`), but `logfire.configure()` / `logfire.instrument_pydantic_ai()` are called in `setup_tracing()` and only affect the logfire OTLP pipeline (which is separate and can be ignored or removed). The actual trace nesting comes from `@opik.track`.
 
+### Span tree detail (current implementation)
+
+```
+evaluate() trace
+└── agent:<model-name>              type="llm" — prompt / final answer / token usage
+    ├── llm_turn_1                  type="llm" — output={"text":"…"} or {} (tool-only turns)
+    │   ├── <tool_name>             type="tool" — input=args, output=result[:4000]
+    │   └── thinking                type="llm" — output={"output":"<reasoning>"} (only if ThinkingPart present)
+    ├── llm_turn_2
+    │   └── <tool_name>
+    └── llm_turn_N                  final answer turn, output={"text":"…"}
+```
+
+One `llm_turn_N` span is created per `ModelResponse` in `run_result.new_messages()`. Tool-only turns (model called tools without prose) have `output={}` — this is correct, not a bug.
+
+### Opik SDK gotchas
+
+- **`type="general"` spans have no text area in the UI** — use `type="llm"` for any span where you want the output displayed as readable text. General spans only show a collapsed JSON blob.
+- **`capture_output=False` does NOT overwrite `update_current_span(output=…)`** — `SpanData.update()` skips `None` values, so the finalisation step is a no-op when the function returns `None`. The output set manually inside the function is preserved.
+- **`tools=individual_tools` not `tools=individual_tools or None`** — pydantic-ai's `_AgentFunctionToolset.__init__` iterates over the argument; passing `None` raises `TypeError: 'NoneType' object is not iterable` for any run where no function-type tools are registered (e.g. MCP-only capability sets).
+- **`evaluate()` needs `project_name=`** — without it, all experiment traces land in "Default Project" regardless of `OPIK_PROJECT_NAME` in `.env`.
+
+### Debugging tips
+
+`[msg-diag]` log lines in `_log_messages_as_spans` are at `DEBUG` level. Re-enable with `LOG_LEVEL=DEBUG` (or `basicConfig(level=logging.DEBUG)`) to see per-message part counts and first 80 chars of each TextPart / ThinkingPart.
+
 ---
 
 ## pydantic-ai breaking change: `result_type` → `output_type`

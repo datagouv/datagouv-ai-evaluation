@@ -217,6 +217,7 @@ def main() -> None:
                 "metrics": run_config["metrics"],
             },
             nb_samples=args.nb_samples,
+            project_name=os.environ.get("OPIK_PROJECT_NAME"),
         )
 
         logger.info("Experiment complete: %s", exp_name)
