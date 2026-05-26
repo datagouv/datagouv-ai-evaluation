@@ -7,7 +7,7 @@ from dotenv import load_dotenv, dotenv_values
 import opik
 from opik import opik_context
 from pydantic_ai import Agent
-from pydantic_ai.messages import ModelResponse, ToolCallPart, ToolReturnPart
+from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.tools import Tool as PydanticTool
@@ -84,6 +84,7 @@ class AgentResult:
     available_tools_schema: list[dict] = field(default_factory=list)
     latency_ms: float = 0.0
     token_usage: int = 0
+    messages: list = field(default_factory=list)
 
 
 # ── Agent runner ──────────────────────────────────────────────────────────────
@@ -154,6 +155,7 @@ async def _run_agent_inner(
         available_tools_schema=task.get("mcp_tools_schema", []),
         latency_ms=net_latency_ms,
         token_usage=token_usage,
+        messages=list(run_result.new_messages()),
     )
 
 
@@ -161,38 +163,87 @@ async def _run_agent_inner(
 
 
 @opik.track(type="tool", capture_input=False, capture_output=False)
-def _log_tool_call(call: dict) -> None:
-    """Create one Opik child span per tool call, nested under the agent_run span."""
+def _log_tool_span(name: str, arguments: Any, result: Any) -> None:
+    """One Opik child span per tool call, nested under the parent LLM-turn span."""
     opik_context.update_current_span(
-        name=call.get("name", "tool_call"),
-        input={"arguments": call.get("arguments") or {}},
-        output={
-            "result": str(call["result"]) if call.get("result") is not None else None
-        },
+        name=name,
+        input={"arguments": arguments if isinstance(arguments, dict) else {"raw": str(arguments)}},
+        output={"result": str(result)[:4000] if result is not None else None},
     )
+
+
+@opik.track(type="llm", capture_input=False, capture_output=False)
+def _log_llm_turn(
+    turn: int,
+    text: str,
+    tool_parts: list,
+    tool_returns: dict,
+    model: str,
+) -> None:
+    """One Opik LLM span per ModelResponse, with tool calls nested beneath it."""
+    opik_context.update_current_span(
+        name=f"llm_turn_{turn}",
+        input={},
+        output={"text": text},
+        model=model,
+    )
+    for tc in tool_parts:
+        args = tc.args if isinstance(tc.args, dict) else {}
+        _log_tool_span(
+            tc.tool_name,
+            args,
+            tool_returns.get(tc.tool_call_id),
+        )
+
+
+def _log_messages_as_spans(messages: list, model: str) -> None:
+    """
+    Walk pydantic-ai message history and create one Opik LLM span per ModelResponse,
+    with tool calls as child tool spans.  This surfaces the full thinking chain
+    (text before/between/after tool calls) in the Opik trace tree.
+    """
+    # Pre-collect all tool return payloads keyed by tool_call_id
+    tool_returns: dict[str, Any] = {}
+    for msg in messages:
+        for part in getattr(msg, "parts", []):
+            if isinstance(part, ToolReturnPart):
+                tool_returns[part.tool_call_id] = part.content
+
+    turn = 0
+    for msg in messages:
+        if not isinstance(msg, ModelResponse):
+            continue
+        parts = getattr(msg, "parts", [])
+        text_parts = [p for p in parts if isinstance(p, TextPart)]
+        tool_parts = [p for p in parts if isinstance(p, ToolCallPart)]
+        if not text_parts and not tool_parts:
+            continue
+        turn += 1
+        text = "\n".join(p.content for p in text_parts)
+        _log_llm_turn(turn, text, tool_parts, tool_returns, model)
 
 
 @opik.track(type="llm", capture_input=False, capture_output=False)
 async def _run_agent_and_log(task_data: dict[str, Any]) -> AgentResult:
     """
     Run the agent inside an Opik span so the trace nests under the evaluation task.
-    Tool calls are logged as child spans. Model/token info is attached to this span.
+    Each LLM turn is logged as a child LLM span; tool calls nest under their turn.
     """
     result = await run_agent(task_data)
+    model_name = task_data.get("model", {}).get("name", "unknown")
 
     opik_context.update_current_span(
-        name=f"agent:{task_data.get('model', 'unknown')}",
+        name=f"agent:{model_name}",
         input={"prompt": task_data.get("prompt", "")},
         output={"answer": result.answer},
-        model=task_data.get("model", {})["name"],
+        model=model_name,
         usage={
             "total_tokens": result.token_usage,
             "prompt_tokens": 0,
             "completion_tokens": 0,
         },
     )
-    for call in result.actual_tool_calls:
-        _log_tool_call(call)
+    _log_messages_as_spans(result.messages, model_name)
 
     return result
 
