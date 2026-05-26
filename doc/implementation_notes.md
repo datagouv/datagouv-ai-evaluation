@@ -128,21 +128,22 @@ One `llm_turn_N` span is created per `ModelResponse` in `run_result.new_messages
 
 Two distinct things appear as "reasoning" in traces:
 
-**1. `TextPart` alongside tool calls** — prose the model emits in the same `ModelResponse` as a `ToolCallPart`. Appears as non-empty `llm_turn_N` output. Model-dependent:
+**1. `TextPart` alongside tool calls** — prose the model emits in the same `ModelResponse` as a `ToolCallPart`. Visible as non-empty `llm_turn_N` output text blob in Opik. Model-dependent:
 
-| Model | Behaviour |
-|---|---|
-| `mistral-medium-latest` | One tool at a time; emits reasoning text before each subsequent tool call ✅ |
-| `gpt-4o` | Batches multiple tool calls in parallel, silently; text only in the final answer turn ❌ |
-| Claude 3.x | One tool at a time + reasoning text ✅ |
+| Model | Behaviour | Opik appearance |
+|---|---|---|
+| `mistral-medium-latest` | One tool at a time; emits reasoning text before each subsequent tool call | Text blob inside `llm_turn_N` |
+| `gpt-4o` | Batches multiple tool calls in parallel, silently; text only in final answer | `llm_turn_N` output empty for tool turns |
+| Claude 3.x | One tool at a time + reasoning text | Text blob inside `llm_turn_N` |
 
-**2. `ThinkingPart`** — a dedicated extended-reasoning block, separate from `TextPart`. Only produced by:
+**2. `ThinkingPart`** — a dedicated extended-reasoning block, separate from `TextPart`. Appears as a separate `thinking` child span **nested under** `llm_turn_N` in Opik. Produced by:
+- `openai/gpt-oss-120b` (Albert API) — confirmed ✅ reasoning appears in `thinking` child span
 - Claude 3.7+ with extended thinking explicitly enabled in the API call
 - Magistral models (`magistral-medium-2506` etc.) via `MistralThinkChunk`
 
 `mistral-medium-latest` is **not** a reasoning model and never produces `ThinkingPart`. If Langfuse shows "reasoning" for a standard Mistral run, it is capturing `TextPart` prose between tool calls — the same content that appears in `llm_turn_N` spans in Opik.
 
-Note: if Mistral returns reasoning in a top-level HTTP field (`reasoning_content`) rather than inside the `content` array, pydantic-ai does **not** map it to `ThinkingPart`. logfire can see it via raw HTTP capture; our Opik spans will not.
+Note: if a model returns reasoning in a top-level HTTP field (`reasoning_content`) rather than inside the `content` array, pydantic-ai does **not** map it to `ThinkingPart`. logfire can see it via raw HTTP capture; our Opik spans will not.
 
 ---
 
