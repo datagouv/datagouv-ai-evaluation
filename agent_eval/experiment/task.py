@@ -7,7 +7,7 @@ from dotenv import load_dotenv, dotenv_values
 import opik
 from opik import opik_context
 from pydantic_ai import Agent
-from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart
+from pydantic_ai.messages import ModelResponse, TextPart, ThinkingPart, ToolCallPart, ToolReturnPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.tools import Tool as PydanticTool
@@ -176,19 +176,30 @@ def _log_tool_span(name: str, arguments: Any, result: Any) -> None:
 def _log_llm_turn(
     turn: int,
     text: str,
+    thinking: str,
     tool_parts: list,
     tool_returns: dict,
     model: str,
 ) -> None:
     """One Opik LLM span per ModelResponse, with tool calls nested beneath it."""
+    output: dict[str, Any] = {}
+    if thinking:
+        output["thinking"] = thinking
+    if text:
+        output["text"] = text
+    if tool_parts:
+        output["tool_calls"] = [tc.tool_name for tc in tool_parts]
     opik_context.update_current_span(
         name=f"llm_turn_{turn}",
         input={},
-        output={"text": text},
+        output=output,
         model=model,
     )
     for tc in tool_parts:
-        args = tc.args if isinstance(tc.args, dict) else {}
+        try:
+            args = tc.args_as_dict()
+        except Exception:
+            args = {"raw": tc.args_as_json_str() if hasattr(tc, "args_as_json_str") else str(tc.args)}
         _log_tool_span(
             tc.tool_name,
             args,
@@ -215,12 +226,14 @@ def _log_messages_as_spans(messages: list, model: str) -> None:
             continue
         parts = getattr(msg, "parts", [])
         text_parts = [p for p in parts if isinstance(p, TextPart)]
+        thinking_parts = [p for p in parts if isinstance(p, ThinkingPart)]
         tool_parts = [p for p in parts if isinstance(p, ToolCallPart)]
-        if not text_parts and not tool_parts:
+        if not text_parts and not thinking_parts and not tool_parts:
             continue
         turn += 1
         text = "\n".join(p.content for p in text_parts)
-        _log_llm_turn(turn, text, tool_parts, tool_returns, model)
+        thinking = "\n".join(p.thinking for p in thinking_parts)
+        _log_llm_turn(turn, text, thinking, tool_parts, tool_returns, model)
 
 
 @opik.track(type="llm", capture_input=False, capture_output=False)
