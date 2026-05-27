@@ -22,6 +22,7 @@ Container security flags:
   --memory 512m / --cpus 1
   --network bridge        internet access; host loopback isolated
 """
+
 from __future__ import annotations
 
 import atexit
@@ -33,22 +34,38 @@ import uuid
 from pathlib import Path
 
 _DOCKER_IMAGE_BASE = "datagouv-agent:base"
-_DOCKER_IMAGE_CLI  = "datagouv-agent:datagouv-cli"
-_DOCKERFILE_DIR    = Path(__file__).parent
+_DOCKER_IMAGE_CLI = "datagouv-agent:datagouv-cli"
+_DOCKERFILE_DIR = Path(__file__).parent
 
 _DOCKER_RUN_FLAGS = [
-    "--security-opt", "no-new-privileges:true",
-    "--cap-drop", "ALL",
-    "--memory", "512m",
-    "--cpus", "1",
-    "--network", "bridge",
+    "--security-opt",
+    "no-new-privileges:true",
+    "--cap-drop",
+    "ALL",
+    "--memory",
+    "512m",
+    "--cpus",
+    "1",
+    "--network",
+    "bridge",
 ]
 
 _CLI_PREFIXES_BASE = (
-    "python ", "python3 ",
-    "ls", "mkdir ", "rm ", "rmdir ", "cp ", "mv ", "cat ", "echo ", "touch ",
-    "curl ", "wget ",
-    "pip ", "pip3 ",
+    "python ",
+    "python3 ",
+    "ls",
+    "mkdir ",
+    "rm ",
+    "rmdir ",
+    "cp ",
+    "mv ",
+    "cat ",
+    "echo ",
+    "touch ",
+    "curl ",
+    "wget ",
+    "pip ",
+    "pip3 ",
 )
 _CLI_PREFIXES_WITH_DATAGOUV = ("datagouv ",) + _CLI_PREFIXES_BASE
 
@@ -69,8 +86,23 @@ def _ensure_print(code: str) -> str:
         return code
     last = lines[-1]
     _STMT_STARTS = (
-        "print", "import", "from", "def ", "class ", "if ", "for ", "while ",
-        "with ", "try:", "except", "raise", "return", "yield", "#", "    ", "\t",
+        "print",
+        "import",
+        "from",
+        "def ",
+        "class ",
+        "if ",
+        "for ",
+        "while ",
+        "with ",
+        "try:",
+        "except",
+        "raise",
+        "return",
+        "yield",
+        "#",
+        "    ",
+        "\t",
     )
     if any(last.lstrip().startswith(s) for s in _STMT_STARTS):
         return code
@@ -99,11 +131,15 @@ class DockerSession:
     def start(self) -> None:
         result = subprocess.run(
             [
-                "docker", "run", "-d",
-                "--name", self._name,
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                self._name,
                 *_DOCKER_RUN_FLAGS,
                 self._image,
-                "sleep", "infinity",
+                "sleep",
+                "infinity",
             ],
             capture_output=True,
         )
@@ -118,10 +154,12 @@ class DockerSession:
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
                 prev = signal.getsignal(sig)
+
                 def _handler(signum, frame, _prev=prev, _self=self):
                     _self.stop()
                     if callable(_prev):
                         _prev(signum, frame)
+
                 signal.signal(sig, _handler)
             except (OSError, ValueError):
                 pass  # not in main thread
@@ -140,12 +178,17 @@ class DockerSession:
 
     async def exec_async(self, entrypoint: list[str]) -> str:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "exec", self._name, *entrypoint,
+            "docker",
+            "exec",
+            self._name,
+            *entrypoint,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=_TIMEOUT_SECONDS)
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(), timeout=_TIMEOUT_SECONDS
+            )
         except asyncio.TimeoutError:
             proc.kill()
             return f"[error] Docker execution timed out after {_TIMEOUT_SECONDS}s"
@@ -167,7 +210,9 @@ def code_toolset(session: DockerSession, has_datagouv_cli: bool = False) -> list
     """
     from pydantic_ai.tools import Tool
 
-    allowed_prefixes = _CLI_PREFIXES_WITH_DATAGOUV if has_datagouv_cli else _CLI_PREFIXES_BASE
+    allowed_prefixes = (
+        _CLI_PREFIXES_WITH_DATAGOUV if has_datagouv_cli else _CLI_PREFIXES_BASE
+    )
 
     async def execute_python(code: str) -> str:
         """Execute Python code in a Docker sandbox with internet access.
@@ -178,9 +223,11 @@ def code_toolset(session: DockerSession, has_datagouv_cli: bool = False) -> list
         return await session.exec_async(["python", "-c", _ensure_print(code)])
 
     if has_datagouv_cli:
+
         async def execute_cli(command: str) -> str:
             """Run a shell command in the Docker sandbox.
             Available commands:
+              datagouv --help                    - explore all datagouv cli available commands
               datagouv dataset display <id>      — dataset metadata
               datagouv resource display <id>     — resource metadata
               datagouv resource download <id> <path>  — download resource file
@@ -198,6 +245,7 @@ def code_toolset(session: DockerSession, has_datagouv_cli: bool = False) -> list
                 )
             return await session.exec_async(["sh", "-c", command])
     else:
+
         async def execute_cli(command: str) -> str:
             """Run a shell command in the Docker sandbox.
             Available commands:
@@ -223,13 +271,15 @@ def code_toolset(session: DockerSession, has_datagouv_cli: bool = False) -> list
 def _image_exists(image: str) -> bool:
     result = subprocess.run(
         ["docker", "image", "inspect", image],
-        capture_output=True, timeout=5,
+        capture_output=True,
+        timeout=5,
     )
     return result.returncode == 0
 
 
 def _check_docker_running() -> None:
     from agent_eval.experiment.agent.builder import CapabilityUnavailableError
+
     try:
         result = subprocess.run(["docker", "info"], capture_output=True, timeout=5)
         if result.returncode != 0:
@@ -241,6 +291,7 @@ def _check_docker_running() -> None:
 def _build_image(image: str, build_args: list[str]) -> None:
     import logging
     from agent_eval.experiment.agent.builder import CapabilityUnavailableError
+
     logger = logging.getLogger(__name__)
     logger.info("Building Docker image '%s' from %s …", image, _DOCKERFILE_DIR)
     result = subprocess.run(
@@ -261,6 +312,7 @@ def ensure_docker_image(has_datagouv_cli: bool = False) -> None:
     Called once at experiment startup.
     """
     import logging
+
     logger = logging.getLogger(__name__)
     _check_docker_running()
 
@@ -287,6 +339,7 @@ def check_and_create_session(has_datagouv_cli: bool = False) -> DockerSession:
     image = _DOCKER_IMAGE_CLI if has_datagouv_cli else _DOCKER_IMAGE_BASE
     if not _image_exists(image):
         from agent_eval.experiment.agent.builder import CapabilityUnavailableError
+
         raise CapabilityUnavailableError(
             f"Docker image '{image}' not found. "
             "Call ensure_docker_image() at startup or build manually."
