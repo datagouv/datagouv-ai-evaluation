@@ -68,9 +68,10 @@ def get_scoring_metrics(metrics: list[str], judge_model_path: Path) -> list:
 
 
 def get_or_create_dataset(
-    client: opik.Opik, tasks, evaluation_type: str
+    client: opik.Opik, tasks, evaluation_type: str, capabilities: list[str] | None = None
 ) -> opik.Dataset:
-    name = f"datagouv_mcp_{evaluation_type}"
+    caps_suffix = "_" + "+".join(sorted(capabilities)) if capabilities else ""
+    name = f"datagouv_mcp_{evaluation_type}{caps_suffix}"
     project_name = os.environ.get("OPIK_PROJECT_NAME")
     dataset = client.get_or_create_dataset(name=name, project_name=project_name)
     # Sync server-side hashes so items with unchanged content are skipped.
@@ -85,11 +86,16 @@ def get_or_create_dataset(
 
 
 def experiment_name(run_config: dict) -> str:
-    caps = "+".join(run_config.get("capabilities") or []) or "none"
-    version = run_config.get("mcp_version") or "no-tools"
+    evaluation_type = run_config["evaluation_type"]
     model = run_config.get("model", {}).get("name")
+    caps = "+".join(run_config.get("capabilities") or []) or "none"
+    mcp_version = run_config.get("mcp_version")
     sp = run_config.get("system_prompt_name", "default")
-    return f"datagouv-{run_config['evaluation_type']}-{version}-{model}-{caps}-{sp}"
+    parts = ["datagouv", evaluation_type, model, caps]
+    if mcp_version:
+        parts.append(mcp_version)
+    parts.append(sp)
+    return "-".join(parts)
 
 
 # ── Validation logging ────────────────────────────────────────────────────────
@@ -197,7 +203,7 @@ def main() -> None:
         exp_name = experiment_name(run_config)
         logger.info("Starting experiment: %s", exp_name)
 
-        dataset = get_or_create_dataset(client, tasks, run_config["evaluation_type"])
+        dataset = get_or_create_dataset(client, tasks, run_config["evaluation_type"], run_config.get("capabilities"))
         scoring_metrics = get_scoring_metrics(run_config["metrics"], JUDGE_MODEL_PATH)
 
         evaluate(
