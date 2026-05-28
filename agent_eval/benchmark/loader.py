@@ -21,7 +21,7 @@ class EvaluationTypeConfig:
     name: str
     description: str
     capabilities: list[list[str]]  # e.g. [[], ["mcp"], ["mcp", "web"]]
-    metrics: list[str]  # e.g. ["result_accuracy", "efficiency", "tool_usage"]
+    metrics: list[str]  # e.g. ["result_accuracy", "efficiency", "action_usage"]
     system_prompts_filter: list[str] | str = (
         "active"  # list of names | "active" | "all"
     )

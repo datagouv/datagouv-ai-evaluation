@@ -5,7 +5,7 @@
 #    capabilities: # Compares agent with different capabilities set
 #      - List[Literal[mcp, code, web_search]] or [] # What abilities the agent should have
 #    metrics: # What type of metrics is compatible with these capabilities
-#      - Literal[result_accuracy, efficiency, tool_usage]]
+#      - Literal[result_accuracy, efficiency, action_usage]]
     
 evaluation_types : 
 
@@ -23,7 +23,7 @@ evaluation_types :
     metrics :
       - result_accuracy
       - efficiency
-      - tool_usage
+      - action_usage
 
   - data_contamination :
     description: > 
@@ -50,7 +50,7 @@ evaluation_types :
     metrics :
       - result_accuracy
       - efficiency
-      - tool_usage
+      - action_usage
 
   - mcp_capabilities_benchmark :
     description: >
@@ -64,20 +64,26 @@ evaluation_types :
     metrics :
       - result_accuracy
       - efficiency
-      - tool_usage
+      - action_usage
 
-  - skills_mcp_capabilities_benchmark :
+  - capabilities_benchmark :
     description: >
       Test combinaisons of different capabilities.
     system_prompts: "active"
     capabilities:
+      #- [mcp]
+      - [web_search]
+      - [code]
+      #- [code,skills]
+      #- [web_search,code,datagouv-cli]
       - [mcp]
-      - [web_search,code]
-      - [mcp,web_search,code]
-      - [skills,web_search,code]
-      - [mcp,skills,web_search,code]
+      #- [web_search,code]
+      #- [mcp,web_search,code]
+      #- [skills,web_search,code]
+      #- [skills,code,datagouv-cli]
     metrics :
       - result_accuracy
       - efficiency
+      - action_usage
   # Later can add skills.md capability to the evaluation types 
 

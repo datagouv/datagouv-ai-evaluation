@@ -131,7 +131,7 @@ async def _run_agent_inner(
         tools=individual_tools,  # pydantic-ai accepts empty list; None causes TypeError
         toolsets=toolsets or None,
         system_prompt=system_prompt,
-        instrument=True,
+        instrument=False,
     )
 
     logger.info("Running agent: %s (capabilities=%s)", agent_name, capabilities)

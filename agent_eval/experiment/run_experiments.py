@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import logging
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -26,10 +27,9 @@ from opik.evaluation import evaluate
 
 from agent_eval.benchmark.loader import build_run_configurations
 from agent_eval.evaluators.opik.experiment_metrics import compute_experiment_metrics
-from agent_eval.evaluators.opik.action_mapper_metric import ActionCallMapperMetric
+from agent_eval.evaluators.opik.action_metric import ActionMetric
 from agent_eval.evaluators.opik.result_accuracy_metric import ResultAccuracyMetric
-from agent_eval.evaluators.opik.tool_usage_metric import ToolUsageMetric
-from agent_eval.evaluators.opik.trajectory_metric import TrajectoryAdherenceMetric
+from agent_eval.evaluators.opik.tool_call_stats_metric import ToolCallStatsMetric
 from agent_eval.experiment.run_config import build_all_run_configs
 from agent_eval.experiment.task import make_task
 from agent_eval.tasks.loader import load_all_tasks, task_to_opik_item
@@ -57,29 +57,107 @@ def get_scoring_metrics(metrics: list[str], judge_model_path: Path) -> list:
     selected.append(
         ResultAccuracyMetric(judge_model_path=judge_model_path)
     )  # includes efficiency + failure modes
-    if "tool_usage" in metrics:
-        selected.append(ActionCallMapperMetric(judge_model_path=judge_model_path))
-        selected.append(ToolUsageMetric(judge_model_path=judge_model_path))
-        selected.append(TrajectoryAdherenceMetric(judge_model_path=judge_model_path))
+    selected.append(ToolCallStatsMetric())  # literal tool-call efficiency tracking
+    if "action_usage" in metrics:
+        # ActionMetric runs the mapper once and emits usage + params + trajectory.
+        selected.append(ActionMetric(judge_model_path=judge_model_path))
     return selected
 
 
 # ── Opik dataset helper ───────────────────────────────────────────────────────
 
 
-def get_or_create_dataset(
-    client: opik.Opik, tasks, evaluation_type: str, capabilities: list[str] | None = None
-) -> opik.Dataset:
-    caps_suffix = "_" + "+".join(sorted(capabilities)) if capabilities else ""
-    name = f"datagouv_mcp_{evaluation_type}{caps_suffix}"
+DATASET_NAME = "datagouv_tasks"
+
+
+def get_or_create_dataset(client: opik.Opik, tasks) -> opik.Dataset:
+    # Single shared dataset for the whole task set (item ids are derived from task_id,
+    # see _task_id_to_uuid7). IMPORTANT: every dataset.insert() call writes a NEW
+    # *version* of the WHOLE dataset (all current items get a version row), and Opik's
+    # dataset-compare view fans out each result once per version ("Avg of N trials").
+    # So we insert ONLY on first creation and skip entirely once the items exist —
+    # any insert (even to add one task) re-versions every item and re-triggers the
+    # fan-out. If the task set changes, regenerate the dataset cleanly (see --reset note).
     project_name = os.environ.get("OPIK_PROJECT_NAME")
-    dataset = client.get_or_create_dataset(name=name, project_name=project_name)
-    # Sync server-side hashes so items with unchanged content are skipped.
-    # This avoids creating a new dataset version on every run.
-    dataset.__internal_api__sync_hashes__()
+    dataset = client.get_or_create_dataset(name=DATASET_NAME, project_name=project_name)
     items = [task_to_opik_item(task) for task in tasks]
-    dataset.insert(items)
+    existing_ids = {item.get("id") for item in dataset.get_items()}
+    missing = [item for item in items if item["id"] not in existing_ids]
+    if not existing_ids:
+        logger.info("Seeding %s with %d item(s)", DATASET_NAME, len(items))
+        dataset.insert(items)
+    elif missing:
+        logger.warning(
+            "%s already exists but %d task(s) are missing. NOT inserting (it would "
+            "re-version every item and re-trigger the compare fan-out). Regenerate the "
+            "dataset cleanly to pick up task changes.",
+            DATASET_NAME, len(missing),
+        )
+    else:
+        logger.info("Dataset %s already up to date (%d items)", DATASET_NAME, len(items))
     return dataset
+
+
+def reset_dataset(client: opik.Opik, tasks) -> None:
+    """Delete the dataset so the next seed starts at exactly one version per item.
+    Use after adding/editing/removing tasks.
+
+    The clean part is the API delete below. The ClickHouse cleanup it then calls is a
+    local-Docker-specific workaround (see _clear_clickhouse_item_versions) — needed only
+    because Opik's API delete does NOT cascade to `dataset_item_versions` and its compare
+    view fans out across versions.
+    """
+    try:
+        client.delete_dataset(name=DATASET_NAME)
+        logger.info("Deleted dataset %s via API", DATASET_NAME)
+    except Exception as exc:  # noqa: BLE001 - dataset may not exist yet
+        logger.info("Dataset %s not deleted (%s) — continuing", DATASET_NAME, exc)
+
+    item_ids = [task_to_opik_item(task)["id"] for task in tasks]
+    _clear_clickhouse_item_versions(item_ids)
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║ DIRTY WORKAROUND — local self-hosted Opik (Docker) ONLY. SAFE TO DELETE.       ║
+# ║                                                                                ║
+# ║ Why it exists: Opik's dataset-compare view fans out each result once per       ║
+# ║ dataset-item *version*, and deleting a dataset via the API does NOT remove its ║
+# ║ `dataset_item_versions` rows from ClickHouse. Since our item ids are stable    ║
+# ║ (derived from task_id), those orphaned versions keep re-triggering the fan-out ║
+# ║ ("Avg of N trials") even after a fresh re-seed. ClickHouse isn't reachable     ║
+# ║ from the host, so the only cleanup path here is `docker exec`.                 ║
+# ║                                                                                ║
+# ║ HOW TO REMOVE: delete this whole function and the `_clear_clickhouse_item_     ║
+# ║ versions(item_ids)` call in reset_dataset above. Everything else stays clean.  ║
+# ║ Remove it once Opik fixes the compare fan-out / cascades dataset deletes, or   ║
+# ║ if you don't run Opik locally in Docker.                                       ║
+# ║                                                                                ║
+# ║ ENV VAR (optional): OPIK_CLICKHOUSE_CONTAINER — the ClickHouse container name. ║
+# ║ Defaults to "opik-opik-clickhouse-1" (the standard local compose name), so you ║
+# ║ normally do NOT need to set anything.                                          ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+def _clear_clickhouse_item_versions(item_ids: list[str]) -> None:
+    container = os.environ.get("OPIK_CLICKHOUSE_CONTAINER", "opik-opik-clickhouse-1")
+    id_list = ",".join(f"'{item_id}'" for item_id in item_ids)
+    query = (
+        "ALTER TABLE opik.dataset_item_versions DELETE "
+        f"WHERE dataset_item_id IN ({id_list}) SETTINGS mutations_sync=1"
+    )
+    try:
+        subprocess.run(
+            ["docker", "exec", container, "clickhouse-client", "--query", query],
+            check=True, capture_output=True, text=True, timeout=120,
+        )
+        logger.info("Cleared ClickHouse item versions for %d task(s)", len(item_ids))
+    except Exception as exc:  # noqa: BLE001 - docker/clickhouse may be unavailable
+        logger.warning(
+            "Could not clear ClickHouse dataset_item_versions automatically (%s). "
+            "If you still see duplicated results, clear it manually: "
+            'docker exec %s clickhouse-client --query '
+            '"TRUNCATE TABLE opik.dataset_item_versions"',
+            exc, container,
+        )
+# ── End dirty workaround ────────────────────────────────────────────────────────
 
 
 # ── Experiment name ───────────────────────────────────────────────────────────
@@ -142,6 +220,14 @@ def main() -> None:
         default=None,
         help="Limit number of dataset items per experiment (smoke test).",
     )
+    parser.add_argument(
+        "--reset-dataset",
+        action="store_true",
+        help=(
+            "Delete and re-seed the dataset (and clear its accumulated ClickHouse item "
+            "versions) before running. Use after adding/editing/removing tasks."
+        ),
+    )
     args = parser.parse_args()
 
     load_dotenv(override=True)
@@ -198,12 +284,14 @@ def main() -> None:
 
     # ── Run evaluations ───────────────────────────────────────────────────────
     client = opik.Opik()
+    if args.reset_dataset:
+        reset_dataset(client, tasks)
+    dataset = get_or_create_dataset(client, tasks)
 
     for run_config in run_configs:
         exp_name = experiment_name(run_config)
         logger.info("Starting experiment: %s", exp_name)
 
-        dataset = get_or_create_dataset(client, tasks, run_config["evaluation_type"], run_config.get("capabilities"))
         scoring_metrics = get_scoring_metrics(run_config["metrics"], JUDGE_MODEL_PATH)
 
         evaluate(

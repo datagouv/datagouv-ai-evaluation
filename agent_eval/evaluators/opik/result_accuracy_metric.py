@@ -34,7 +34,10 @@ def _criteria_reason(results: list[CriterionResult]) -> str:
 
 class ResultAccuracyMetric(base_metric.BaseMetric):
     def __init__(self, judge_model_path: Path):
-        super().__init__(name="result_accuracy")
+        # track=False: avoid wrapping score() in @opik.track. The per-metric span it
+        # creates makes the dataset-compare view duplicate each item once per scorer
+        # span ("Avg of N trials"). Scores still attach to the trace as feedback scores.
+        super().__init__(name="result_accuracy", track=False)
         self._judge_model = JudgeModel(judge_model_path)
 
     def score(

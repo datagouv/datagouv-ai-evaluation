@@ -20,7 +20,8 @@ Output (stdout):
 
 ## Instructions
 
-Identify which semantic action(s) from the list above this code implements.
+Identify which semantic action(s) from the list above this code implements, and
+extract the arguments used for each one.
 Focus on what the code *retrieves or computes*, not how it does it.
 
 Rules:
@@ -29,14 +30,18 @@ Rules:
 - `get.resource.info`: fetching basic file metadata (title, URL, format, size).
 - `get.dataset.info`: fetching dataset-level metadata.
 - `get.dataset.resources`: listing the resources of a dataset.
-- If the code does multiple things (e.g. fetch then analyze), list all matching actions.
+- One tool call can implement MANY actions — emit one entry per action. For example, three
+  separate searches inside one script are three `search.datasets` actions, each with its own args.
+- For each action, populate `args` with the parameters that action used (e.g. the search query,
+  `dataset_id`, `resource_id`, filters). Use the semantic argument name when obvious (e.g. `query`,
+  `dataset_id`, `resource_id`). Use `{{}}` if no arguments are discernible.
 - If the code does general Python computation unrelated to data.gouv.fr retrieval, return `python_local_analysis`.
 - If no action matches with confidence ≥ 0.5, return `unclassified`.
 
 Respond with a JSON object:
 {{
   "actions": [
-    {{"action": "<action_name_or_python_local_analysis_or_unclassified>", "confidence": <0.0–1.0>, "reason": "<brief explanation>"}}
+    {{"action": "<action_name_or_python_local_analysis_or_unclassified>", "args": {{"<arg_name>": "<value>"}}, "confidence": <0.0–1.0>, "reason": "<brief explanation>"}}
   ]
 }}
 Return only the JSON object, no other text.
