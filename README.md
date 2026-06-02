@@ -4,7 +4,7 @@ An evaluation framework for AI agent's data.gouv.fr toolsets — measuring respo
 
 ## At a glance
 
-A configurable cross-product of **evaluation type × model × MCP version × capabilities × system prompt** runs against a curated set of real data.gouv.fr questions. Each agent run is scored with LLM-as-a-judge and deterministic metrics, aggregated at experiment level, and stored in self-hosted [Opik](https://www.comet.com/docs/opik/) so you can compare configurations side by side.
+A configurable cross-product of **evaluation type × model × capabilities (MCP, cli, skills.md...) × system prompt** runs against a curated set of real data.gouv.fr questions. Each agent run is scored with LLM-as-a-judge and deterministic metrics, aggregated at experiment level, and stored in self-hosted [Opik](https://www.comet.com/docs/opik/) so you can compare configurations side by side.
 
 **Quick start:** start Opik (`./opik.sh`), `uv sync`, copy `.env.example` to `.env`, then `uv run python -m agent_eval.experiment.run_experiments`. Full walkthrough in [§3 Setup](#setup--running-evaluations).
 
