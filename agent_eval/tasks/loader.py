@@ -13,13 +13,17 @@ import yaml
 _EPOCH_MS = 1704067200000
 
 
-def _task_id_to_uuid7(task_id: str) -> str:
-    """Deterministic UUID v7 derived from task_id.
+def _task_id_to_uuid7(task_id: str, version: str = "") -> str:
+    """Deterministic UUID v7 derived from task_id (and optional dataset version).
 
     Version nibble = 7, variant = 10 (RFC 4122), timestamp fixed at _EPOCH_MS.
-    Random bits come from SHA-256 of task_id — unique and stable per task.
+    Random bits come from SHA-256 of `task_id[:version]` — unique and stable per
+    (task_id, version). Bumping `version` yields entirely new ids so a refreshed
+    dataset doesn't collide with orphaned `dataset_item_versions` rows from prior
+    submissions (Opik's API delete does NOT cascade to ClickHouse).
     """
-    h = hashlib.sha256(task_id.encode()).digest()
+    key = f"{task_id}:{version}" if version else task_id
+    h = hashlib.sha256(key.encode()).digest()
     b = bytearray(16)
     # Bytes 0-5: 48-bit timestamp
     ts = _EPOCH_MS
@@ -243,8 +247,13 @@ def load_all_tasks(tasks_dir: Path, status_filter: str = "active") -> list[Task]
     return tasks
 
 
-def task_to_opik_item(task: Task) -> dict:
-    """Convert a Task into an Opik DatasetItem-compatible dict."""
+def task_to_opik_item(task: Task, version: str = "") -> dict:
+    """Convert a Task into an Opik DatasetItem-compatible dict.
+
+    `version` is folded into the item id so bumping it yields fresh ids (used to
+    cleanly re-seed the dataset when tasks change; see `DATASET_VERSION` in
+    run_experiments.py).
+    """
 
     def action_chain_level_to_dict(level: ActionChainLevel) -> dict:
         return {
@@ -266,7 +275,7 @@ def task_to_opik_item(task: Task) -> dict:
         }
 
     return {
-        "id": _task_id_to_uuid7(task.task_id),
+        "id": _task_id_to_uuid7(task.task_id, version),
         "input": {
             "prompt": task.prompt,
             "task_id": task.task_id,

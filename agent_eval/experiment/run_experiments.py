@@ -17,7 +17,6 @@ import argparse
 import asyncio
 import logging
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -67,97 +66,49 @@ def get_scoring_metrics(metrics: list[str], judge_model_path: Path) -> list:
 # ── Opik dataset helper ───────────────────────────────────────────────────────
 
 
-DATASET_NAME = "datagouv_tasks"
+# ── Dataset version ───────────────────────────────────────────────────────────
+# BUMP THIS WHENEVER YOU ADD/EDIT/REMOVE A TASK to get a clean fresh dataset.
+# The version is folded into the dataset name AND each item id, so a new version
+# produces entirely fresh ids that don't collide with orphaned `dataset_item_versions`
+# rows from prior submissions. Within one version, re-runs reuse the same dataset and
+# skip insert (no version churn). If you forget to bump after editing a task, the
+# dataset stays on the old content — see the warning logged in get_or_create_dataset.
+DATASET_VERSION = "v1"
+
+DATASET_NAME_BASE = "datagouv_tasks"
+
+
+def _dataset_name() -> str:
+    return f"{DATASET_NAME_BASE}_{DATASET_VERSION}"
 
 
 def get_or_create_dataset(client: opik.Opik, tasks) -> opik.Dataset:
-    # Single shared dataset for the whole task set (item ids are derived from task_id,
-    # see _task_id_to_uuid7). IMPORTANT: every dataset.insert() call writes a NEW
-    # *version* of the WHOLE dataset (all current items get a version row), and Opik's
-    # dataset-compare view fans out each result once per version ("Avg of N trials").
-    # So we insert ONLY on first creation and skip entirely once the items exist —
-    # any insert (even to add one task) re-versions every item and re-triggers the
-    # fan-out. If the task set changes, regenerate the dataset cleanly (see --reset note).
+    """Get or seed the versioned dataset.
+
+    The single seed pattern (insert ONLY when empty) keeps every item at exactly one
+    `dataset_item_versions` row, which is what stops Opik's dataset-compare view from
+    fanning out results ("Avg of N trials"). To apply task changes, bump DATASET_VERSION
+    — that yields a fresh dataset name + fresh item ids, no collision with orphans.
+    """
+    name = _dataset_name()
     project_name = os.environ.get("OPIK_PROJECT_NAME")
-    dataset = client.get_or_create_dataset(name=DATASET_NAME, project_name=project_name)
-    items = [task_to_opik_item(task) for task in tasks]
+    dataset = client.get_or_create_dataset(name=name, project_name=project_name)
+    items = [task_to_opik_item(task, version=DATASET_VERSION) for task in tasks]
     existing_ids = {item.get("id") for item in dataset.get_items()}
     missing = [item for item in items if item["id"] not in existing_ids]
     if not existing_ids:
-        logger.info("Seeding %s with %d item(s)", DATASET_NAME, len(items))
+        logger.info("Seeding %s with %d item(s)", name, len(items))
         dataset.insert(items)
     elif missing:
         logger.warning(
             "%s already exists but %d task(s) are missing. NOT inserting (it would "
-            "re-version every item and re-trigger the compare fan-out). Regenerate the "
-            "dataset cleanly to pick up task changes.",
-            DATASET_NAME, len(missing),
+            "re-version every item and re-trigger the compare fan-out). Bump "
+            "DATASET_VERSION in run_experiments.py to pick up task changes cleanly.",
+            name, len(missing),
         )
     else:
-        logger.info("Dataset %s already up to date (%d items)", DATASET_NAME, len(items))
+        logger.info("Dataset %s already up to date (%d items)", name, len(items))
     return dataset
-
-
-def reset_dataset(client: opik.Opik, tasks) -> None:
-    """Delete the dataset so the next seed starts at exactly one version per item.
-    Use after adding/editing/removing tasks.
-
-    The clean part is the API delete below. The ClickHouse cleanup it then calls is a
-    local-Docker-specific workaround (see _clear_clickhouse_item_versions) — needed only
-    because Opik's API delete does NOT cascade to `dataset_item_versions` and its compare
-    view fans out across versions.
-    """
-    try:
-        client.delete_dataset(name=DATASET_NAME)
-        logger.info("Deleted dataset %s via API", DATASET_NAME)
-    except Exception as exc:  # noqa: BLE001 - dataset may not exist yet
-        logger.info("Dataset %s not deleted (%s) — continuing", DATASET_NAME, exc)
-
-    item_ids = [task_to_opik_item(task)["id"] for task in tasks]
-    _clear_clickhouse_item_versions(item_ids)
-
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║ DIRTY WORKAROUND — local self-hosted Opik (Docker) ONLY. SAFE TO DELETE.       ║
-# ║                                                                                ║
-# ║ Why it exists: Opik's dataset-compare view fans out each result once per       ║
-# ║ dataset-item *version*, and deleting a dataset via the API does NOT remove its ║
-# ║ `dataset_item_versions` rows from ClickHouse. Since our item ids are stable    ║
-# ║ (derived from task_id), those orphaned versions keep re-triggering the fan-out ║
-# ║ ("Avg of N trials") even after a fresh re-seed. ClickHouse isn't reachable     ║
-# ║ from the host, so the only cleanup path here is `docker exec`.                 ║
-# ║                                                                                ║
-# ║ HOW TO REMOVE: delete this whole function and the `_clear_clickhouse_item_     ║
-# ║ versions(item_ids)` call in reset_dataset above. Everything else stays clean.  ║
-# ║ Remove it once Opik fixes the compare fan-out / cascades dataset deletes, or   ║
-# ║ if you don't run Opik locally in Docker.                                       ║
-# ║                                                                                ║
-# ║ ENV VAR (optional): OPIK_CLICKHOUSE_CONTAINER — the ClickHouse container name. ║
-# ║ Defaults to "opik-opik-clickhouse-1" (the standard local compose name), so you ║
-# ║ normally do NOT need to set anything.                                          ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-def _clear_clickhouse_item_versions(item_ids: list[str]) -> None:
-    container = os.environ.get("OPIK_CLICKHOUSE_CONTAINER", "opik-opik-clickhouse-1")
-    id_list = ",".join(f"'{item_id}'" for item_id in item_ids)
-    query = (
-        "ALTER TABLE opik.dataset_item_versions DELETE "
-        f"WHERE dataset_item_id IN ({id_list}) SETTINGS mutations_sync=1"
-    )
-    try:
-        subprocess.run(
-            ["docker", "exec", container, "clickhouse-client", "--query", query],
-            check=True, capture_output=True, text=True, timeout=120,
-        )
-        logger.info("Cleared ClickHouse item versions for %d task(s)", len(item_ids))
-    except Exception as exc:  # noqa: BLE001 - docker/clickhouse may be unavailable
-        logger.warning(
-            "Could not clear ClickHouse dataset_item_versions automatically (%s). "
-            "If you still see duplicated results, clear it manually: "
-            'docker exec %s clickhouse-client --query '
-            '"TRUNCATE TABLE opik.dataset_item_versions"',
-            exc, container,
-        )
-# ── End dirty workaround ────────────────────────────────────────────────────────
 
 
 # ── Experiment name ───────────────────────────────────────────────────────────
@@ -220,14 +171,6 @@ def main() -> None:
         default=None,
         help="Limit number of dataset items per experiment (smoke test).",
     )
-    parser.add_argument(
-        "--reset-dataset",
-        action="store_true",
-        help=(
-            "Delete and re-seed the dataset (and clear its accumulated ClickHouse item "
-            "versions) before running. Use after adding/editing/removing tasks."
-        ),
-    )
     args = parser.parse_args()
 
     load_dotenv(override=True)
@@ -284,8 +227,6 @@ def main() -> None:
 
     # ── Run evaluations ───────────────────────────────────────────────────────
     client = opik.Opik()
-    if args.reset_dataset:
-        reset_dataset(client, tasks)
     dataset = get_or_create_dataset(client, tasks)
 
     for run_config in run_configs:
