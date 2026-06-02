@@ -30,7 +30,6 @@ Practically, this means the framework can be used to:
 | data.gouv.fr REST API + Tabular API (via code execution) | Active |
 | `datagouv-client` CLI (via code execution) | Active |
 | Skills.md | Active |
-| Skills.md | Active |
 | Python SDK (via code execution) | Roadmap |
 
 *Status means whether the capability is available as a config parameter for evaluations
