@@ -147,6 +147,57 @@ Note: if a model returns reasoning in a top-level HTTP field (`reasoning_content
 
 ---
 
+## Dataset versioning: avoiding the compare-view "N trials" fan-out
+
+The Opik dataset-compare view was showing each task result duplicated as **"Avg of N trials (σ=0)"** — N grew over time (3 → 5 → 7 → 8…) and re-running the experiments never reset it. The underlying experiment data was always clean (1 experiment item per dataset item per experiment, verified via `stream_experiment_items` and direct ClickHouse counts); the duplication came purely from the backend read query.
+
+### Root cause
+
+Three things combined:
+
+1. **Task item ids are content-deterministic** (`_task_id_to_uuid7(task.task_id)` in `agent_eval/tasks/loader.py`), so the same `dataset_item_id` is reused in every dataset.
+2. **Every `dataset.insert()` call writes a NEW full snapshot of the dataset.** Even inserting one new item re-versions every existing item — empirically verified: seeding `[A, B, C]` in one call then `insert([D])` produced A: 2 versions, B: 2, C: 2, D: 1.
+3. **`client.delete_dataset()` does NOT cascade to ClickHouse `dataset_item_versions`.** Rows orphan and persist. Each delete→recreate cycle adds another orphaned version row for the same id, so the count only ever climbed.
+
+The dataset-compare query then fans out results across all versions: **`copies = experiments_compared × versions(dataset_item_id)`** (proven by measuring 1×8=8, 2×8=16, 3×8=24).
+
+### Dead ends
+
+- **Splitting the dataset per evaluation-type / per-capabilities combo** — built on the wrong hypothesis that multiple datasets sharing item ids caused the fan-out. Reverted to a single dataset.
+- **`__internal_api__sync_hashes__()`** — its docstring claims it dedupes unchanged items, but it does not prevent new version rows in this Opik version. Removed.
+- **`--reset-dataset` flag that runs `docker exec clickhouse-client …` to clear `dataset_item_versions`** — works, but couples the eval runner to local Docker / a specific container name. Removed in favour of the versioning approach.
+
+### Solution
+
+Fold a manual version constant into both the dataset name and the item ids, and only insert when the dataset is empty:
+
+- `DATASET_VERSION = "v1"` at the top of `run_experiments.py` — **bump it when you add/edit/remove a task.**
+- Dataset name: `f"datagouv_tasks_{DATASET_VERSION}"`.
+- Item id: `_task_id_to_uuid7(task.task_id, version=DATASET_VERSION)` — the version is part of the SHA-256 input so bumping it yields entirely new ids.
+- `get_or_create_dataset` seeds only when the dataset has no items; otherwise it logs whether everything is up to date or which tasks are missing (warning the user to bump the version).
+
+Outcome:
+
+- **Steady-state runs (no task changes)** → same version → same dataset → `insert()` skipped → 1 version per item → compare fan-out = 1.
+- **Task change** → bump `DATASET_VERSION` → fresh dataset with brand-new ids → no collision with orphaned version rows → 1 version per item → compare fan-out = 1, no Docker needed.
+- **Forgot to bump** → `get_or_create_dataset` logs a warning naming the missing tasks and refuses to silently insert (which would re-version every existing item).
+
+Old versioned datasets remain in Opik as harmless orphans (different ids, never re-evaluated). Delete them via the UI when they get cluttered.
+
+---
+
+## OpenAI-compat provider quirks (`CompatibleOpenAIChatModel`)
+
+`agent_eval/utils.py` subclasses `OpenAIChatModel` to absorb provider deviations before pydantic-ai's strict `ChatCompletion` validation runs. Three patches currently live in this class:
+
+1. **429 retry per-request** — wraps `request()` with `_RATE_LIMIT_BACKOFF` so the agent resumes from the failing turn instead of restarting from scratch. The accumulated wait is tracked in `rate_limit_wait_ms` so callers can subtract it from observed latency.
+2. **`tool_calls.type` is `null`** (e.g. Mistral) — the OpenAI schema requires `"function"`. Patched in place before the super-class validates.
+3. **`message.content` is a list of content parts** (e.g. Mistral started returning `[{"type": "text", "text": "..."}, ...]`) — pydantic-ai's `ChatCompletion.choices[].message.content` is typed as `Optional[str]` and rejects the list with `ValidationError: Input should be a valid string [type=string_type, ...]`. The patch flattens the list (joining `text` fields, in order) before delegating to `super()._process_response(...)`. Handles dict-shape and object-shape parts, and is a no-op when content is already a string or `None`.
+
+Without (2) and (3), Mistral runs blow up mid-evaluation with `UnexpectedModelBehavior` and the retry loop in `task.py` burns full backoff cycles waiting for non-transient failures.
+
+---
+
 ## pydantic-ai breaking change: `result_type` → `output_type`
 
 pydantic-ai renamed the `Agent` constructor parameter from `result_type` to `output_type` in a breaking release. All four core evaluator files (`result_accuracy.py`, `tool_params.py`, `trajectory.py`, `failure_modes.py`) were updated.
