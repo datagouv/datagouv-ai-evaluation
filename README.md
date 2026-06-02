@@ -1,197 +1,415 @@
 # datagouv-ai-evaluation
 
-Evaluation framework for AI applications at [data.gouv.fr](https://data.gouv.fr), starting with the MCP server.
-
-The framework runs agents against a benchmark of real user tasks, scores their responses with LLM-as-a-judge metrics, and tracks results in Opik.
+An evaluation framework for AI agent's data.gouv.fr toolsets — measuring response quality, cost efficiency, and viability across different models and capability configurations.
 
 ---
 
-## Why evaluate the MCP server?
+## 1. Purpose & Goals
 
-An MCP server is not only an infrastructure component — it shapes how an agent understands and queries the data catalog. The names, descriptions, and argument structures of MCP tools directly influence whether an agent finds the right dataset, calls the right tool, or wastes tokens on redundant calls.
+### Why this framework?
 
-This framework evaluates:
-- whether agents can find the right datasets and resources using the MCP tools
-- how efficiently they do it (token usage, latency, number of tool calls)
-- how different MCP versions, models, and system prompts compare
-- whether a new MCP version introduces regressions (CI/CD integration)
+data.gouv.fr offers several ways for AI agents to access the French open data catalog: an MCP server, a REST API, a Python SDK and a CLI. A skills.md has also been developed to improve AI agents usage fo these methods. The quality of these solutions — their tool/endpoint/class/command descriptions, argument design, and data coverage — directly shapes whether an agent finds the right dataset or dataservices and how to leverage it, calls the right solutions the right way, or wastes tokens on redundant queries.
 
----
+This framework evaluates agents across three axes:
 
-## Prerequisites: local Opik instance
+- **Response quality** — does the agent find the right resource and answer the user's question correctly?
+- **Cost efficiency** — how many tokens and how much time does it take? Can accuracy be maintained while reducing consumption?
+- **Smaller model accessibility** — do open-source - often smaller - models perform adequately, or does quality collapse below a certain model size?
 
-This framework requires a **self-hosted Opik instance running in Docker**. Opik handles dataset management, experiment tracking, trace visualization, and metric aggregation.
+Practically, this means the framework can be used to:
+- **Compare toolset and skills.md versions** (e.g. non-regression testing as the MCP server evolves)
+- **Benchmark capability combinations** (MCP only vs. MCP + web search vs. MCP + code execution)
+- **Measure the impact of other environment parameters** like system prompts or models changes
+- **Identify failure patterns** (hallucinations, missing caveats, early stops) to guide toolset improvements
 
-To install Opik locally:
-1. Clone the Opik repository: `git clone https://github.com/comet-ml/opik.git`
-2. Start it: `cd opik && ./opik.sh`
-3. Open the UI at [http://localhost:5173](http://localhost:5173)
+### Capabilities in scope
 
-Full instructions: [Opik local deployment guide](https://www.comet.com/docs/opik/self-host/local_deployment)
-
-The Opik OTLP tracing endpoint used by this framework is `http://localhost:5173/api/v1/private/otel`.
-
----
-
-## Repository structure
-
-```
-agent_eval/
-├── benchmark/
-│   └── config/                  # Experiment cross-product configuration
-│       ├── evaluation_types.yml # Evaluation types (data_contamination, mcp_versions, …)
-│       ├── models.yml           # Models to evaluate (active: true/false per entry)
-│       ├── mcp_versions.yml     # MCP server versions and URLs
-│       └── system_prompts.yml   # Named system prompts
-│
-├── tasks/
-│   └── config/                  # Task YAML files (task_0001.yml, …)
-│
-├── evaluators/
-│   ├── core/                    # Pure evaluation logic (no Opik dependency)
-│   │   ├── prompts/             # LLM judge prompt builders
-│   │   ├── config/
-│   │   │   └── failure_modes.yml
-│   │   ├── result_accuracy.py
-│   │   ├── tool_usage.py
-│   │   ├── tool_params.py
-│   │   ├── trajectory.py
-│   │   ├── failure_modes.py
-│   │   ├── schema_compliance.py
-│   │   └── efficiency.py
-│   └── opik/                    # Opik BaseMetric wrappers
-│       ├── result_accuracy_metric.py   # Also runs efficiency + failure modes
-│       ├── tool_usage_metric.py
-│       ├── trajectory_metric.py
-│       └── experiment_metrics.py       # Experiment-level aggregates
-│
-└── experiment/
-    ├── run_experiments.py       # CLI entry point
-    ├── run_config.py            # Fetches MCP tool schemas per version
-    ├── task.py                  # Agent runner + Opik trace hooks
-    ├── mcp_tools_getter.py      # MCP tool discovery
-    └── tracing.py               # Opik/logfire tracing setup
-
-doc/
-├── README_legacy.md             # Original planning document
-├── metrics.md                   # Metric definitions and formulas
-└── implementation_notes.md      # Architecture decisions and dead ends
-```
-
----
-
-## Evaluation types
-
-| Type | Description |
+| Capability | Status* |
 |---|---|
-| `data_contamination` | Baseline: agent with no MCP tools. Measures what the model knows from training data alone. |
-| `mcp_versions` | Agent with MCP enabled. Compares across MCP server versions. |
-| `capabilities_benchmark` | Compares different capability sets (MCP only, MCP + web search, MCP + code execution). |
+| MCP server (`mcp.data.gouv.fr`) | Active |
+| data.gouv.fr REST API + Tabular API (via code execution) | Active |
+| `datagouv-client` CLI (via code execution) | Active |
+| Skills.md | Active |
+| Skills.md | Active |
+| Python SDK (via code execution) | Roadmap |
 
-Each type defines which metrics to compute and which system prompts to apply.
+*Status means whether the capability is available as a config parameter for evaluations
+
+---
+## 2. Core Concepts
+
+### The Benchmark
+
+The benchmark is a **cross-product** of what you are measuring (evaluation type) and what can vary (modalities).
+
+#### Evaluation types
+
+Each evaluation type defines a specific question to answer, e.g. :
+
+| Type | Question |
+|---|---|
+| `data_contamination` | What does the model know from training data alone, without any tools? |
+| `mcp_versions` | Does a new MCP server version improve or regress against the previous one? |
+| `capabilities_benchmark` | General comparison across active capability configurations |
+
+Each type specifies which capabilities, system prompts, and metrics apply. Configuration lives in `agent_eval/benchmark/config/evaluation_types.yml`.
+
+#### Modalities
+
+Within an evaluation type, the following dimensions can vary:
+
+- **Models** — Mistral, OpenAI, Albert (Etalab). All use the OpenAI-compatible API. Configured in `benchmark/config/models.yml` with `active: true/false`.
+- **MCP versions** — version-pinned server URLs. Configured in `benchmark/config/mcp_versions.yml`.
+- **Skills.md versions** — Configured in `benchmark/config/skills_versions.yml` (referenced version to be added to `benchmark/config/skills/`). Skills.md is currently injected into the system prompt.
+- **System prompts** — named variants from `benchmark/config/system_prompts.yml`
+- **Capabilities** — the toolset combination given to the agent: `[mcp]`, `[mcp, web_search]`, `[mcp, code]`, `[code, datagouv-cli]`, etc.
+
+Each run is one combination of `(evaluation_type × model × capabilities [× MCP version][× skills.md version] × system prompt)`. The cross-product is built automatically from the active entries in each YAML file.
 
 ---
 
-## Tasks
+### The Semantic Layer
 
-Each task is a YAML file in `agent_eval/tasks/config/`. A task defines:
-- **prompt**: the user question sent to the agent
-- **evaluation_criteria**: what constitutes a correct answer, at minimal and optimal levels
-- **tool_chain**: expected MCP tool calls (name, arguments) at minimal and optimal levels
-- **resources**: data.gouv.fr datasets/resources referenced, with validation checks
+#### The problem
 
-Only tasks with `meta.status: active` are included in runs. The `example_task_0000.yml` shows the format.
+The same user intent — "find a dataset about sports facilities" — can be realised as:
+- An MCP tool call: `search_datasets(query="équipements sportifs")`
+- A REST API call: `GET /api/1/datasets/?q=équipements+sportifs`
+- A CLI command: `datagouv dataset list --query "équipements sportifs"`
+- A code block hitting the same API endpoint
+
+Evaluating "did the agent do the right thing?" - and not only "did it answer right ?" - across all these implementations requires abstracting over the concrete tool names and frameworks.
+
+#### How it works
+
+The semantic layer maps each **semantic action name** to its concrete implementations per framework and version:
+
+- `semantic_layer/config/actions.yml` — defines which MCP tool, CLI command, or API endpoint corresponds to each semantic action, with version specifiers (PEP 440 syntax)
+- `semantic_layer/config/action_args.yml` — maps semantic argument names to framework-specific argument names
+- `semantic_layer/resolver.py` — version-aware resolver used at evaluation time
+
+At evaluation time, the action mapper (`evaluators/core/action_mapper.py`) classifies each literal tool call into one or more semantic action instances. Classification is:
+- **Deterministic** for MCP tool calls and known CLI commands
+- **LLM-judged** for code execution (Python scripts, curl calls, CLI one-liners) and unrecognised tools
+
+This allows tasks to be written once and evaluated against any toolset implementation.
+
+#### Defined semantic actions
+
+| Action | What it means |
+|---|---|
+| `search.datasets` | Keyword or semantic search for datasets in the catalog |
+| `search.dataservices` | Search for API dataservices in the catalog |
+| `get.dataset.info` | Retrieve a specific dataset's metadata |
+| `get.dataset.resources` | List the files and resources attached to a dataset |
+| `get.resource.info` | Retrieve a specific resource's metadata |
+| `get.resource.profile` | Get the tabular schema and column statistics of a resource |
+| `get.data` | Fetch actual data rows from a resource |
+| `get.dataservice.info` | Retrieve a dataservice's metadata |
+| `get.dataservice.openapi_spec` | Fetch the OpenAPI specification of a dataservice |
+
+See `doc/vocabulary.md` for the naming convention (`action.object_type[.facet]`).
 
 ---
 
-## Metrics
+### Tasks
 
-See [doc/metrics.md](doc/metrics.md) for full definitions and formulas.
+#### Source
 
-Key groups:
-- **Result accuracy**: are the evaluation criteria met? (minimal / optimal levels)
-- **Tool usage**: did the agent call the right tools with correct parameters?
-- **Trajectory adherence**: did the agent follow the expected tool call sequence?
-- **Efficiency**: token usage, latency, and their ratio to result accuracy
-- **Failure modes**: binary flags for named failure patterns (hallucination, early stop, …)
+Task prompts are inspired from real questions extracted from the data.gouv.fr community forum (`forum.data.gouv.fr`) and support channels (messages are anonymized and rephrased). This grounds the evaluation in actual user difficulties: ambiguous requests, multi-source answers, resources that aren't queryable via the tabular API, datasets that require caveats about size or access.
+
+#### Human-reviewed labeling
+
+Each task is manually annotated with expected outcomes. Rather than writing a too restrictive reference answer, tasks define more lasting criteria :
+
+- **Evaluation criteria** — what properties the response must have ("agent identifies the FINESS dataset", "agent explains that the CSV is not queryable via the tabular API")
+- **Action chain** — which semantic actions the agent should perform, in which order, including parallel branches
+
+This labeling approach is more scalable: new tool calls or catalog entries don't invalidate the criteria, and criteria can be evaluated automatically via LLM-as-a-judge across any number of runs.
+
+#### The minimal / optimal split
+
+Every task defines two performance tiers:
+
+- **Minimal** — what a basic user would consider satisfactory: the agent found the right resource and gave usable information
+- **Optimal** — what a more technically experienced user would expect or what a very good agent (performing the last mile) : the agent also explains caveats, access constraints, data quality issues, differences between sources, or how to use the data programmatically
+
+All metrics are reported separately for minimal and optimal levels. This lets you distinguish "it works" from "it works very well", and identify which configurations close the gap between the two.
+
+#### Production data drift
+
+Even though the criteria system is made to last, some breaking changes can still happen : datasets removed from data.gouv.fr catalogue, unavailability of a resource on Tabular API... To prevent this from failing silently, before launching experiments, a script runs to validate that required resources haven't changed (see `agent_eval/tasks/resource_validator.py`, stored and git versioned data `agent_eval/tasks/data/` and the key `resources` in `agent_eval/tasks/config/example_task_0000.yml`)
+
+#### Current set
+
+10 tasks, covering dataset discovery, dataservice identification, tabular queries, and multi-source scenarios. Task prompts are in French, reflecting the actual user population. At 10 tasks, the evaluation is primarily **qualitative** — suitable for catching regressions and understanding failure patterns, but not statistically significant for fine-grained comparisons. See [Limitations](#4-limitations).
+
+Task files: `agent_eval/tasks/config/task_XXXX.yml`. Format documented in `example_task_0000.yml`.
 
 ---
 
-## Setup
+### Metrics
 
-### 1. Install dependencies
+Four groups of metrics, all computed per task and aggregated to experiment level (averaged across the dataset for a given model × configuration combination).
+
+#### 1. Result Accuracy (LLM-as-a-judge)
+
+Did the agent's response satisfy each evaluation criterion?
+
+- Reported for **minimal** and **optimal** criterion sets separately
+- Score per level: `validated_criteria / total_criteria` ∈ [0, 1]
+- Each criterion is judged independently and concurrently
+
+#### 2. Action Metrics (semantic space)
+
+Three sub-dimensions, all operating on the semantic action instances produced by the action mapper:
+
+**Action usage** (deterministic)
+Measures whether the agent used the right *types* of actions:
+- Precision, recall, F1 at the **action-type level** (unique action names: did the agent use `search.datasets` at all?)
+- Precision, recall, F1 at the **action-instance level** (per call: did the agent looked up a specific dataset `id` resources through `get.dataset.resources` ?)
+- Both computed for minimal and optimal action chains
+
+**Action parameter correctness** (LLM-as-a-judge)
+Measures whether the arguments passed to actions were correct:
+- Actual action instances are matched against ground-truth required actions
+- Judge evaluates `strict_value` parameters (exact match) and `criteria`-based parameters (semantic match)
+- Score: `matched_actions / required_actions`
+
+**Trajectory adherence** (LLM-as-a-judge)
+Measures whether the agent followed the expected action sequence:
+- Accounts for sequential steps (`A > B`) and parallel branches (`(A > B) + (C > D)`)
+- Score ∈ [0, 1]; evaluated for minimal and optimal chains independently
+
+#### 3. Efficiency (deterministic)
+
+Raw measures:
+- `latency_ms` — end-to-end wall time, excluding rate-limit wait time
+- `token_usage` — total tokens consumed
+
+Derived scores (higher = more result per unit cost):
+- `token_efficiency` = `result_accuracy / (token_usage / 1000)`
+- `time_efficiency` = `result_accuracy / (latency_ms / 60_000)`
+
+Both derived scores are computed for minimal and optimal accuracy levels.
+
+#### 4. Failure Modes (LLM-as-a-judge, binary flags)
+
+Nine named failure patterns, each scored 0 (absent) or 1 (present):
+
+| Mode | Description |
+|---|---|
+| `HALLUCINATION` | Invented dataset IDs, resource names, endpoints, or facts not grounded in tool results |
+| `MISINTERPRETATION` | Correct tool results but wrong conclusions drawn from them |
+| `WRONG_RESOURCE` | Selected the wrong type of dataset or dataservice for the user's need |
+| `PARAMETER_ERROR` | Wrong, malformed, or missing tool call arguments |
+| `TOOL_OMISSION` | Answered without tools when tools were clearly needed |
+| `EARLY_STOP` | Incomplete tool chain — searched but never fetched details |
+| `REDUNDANT_LOOP` | Repeated the same tool call without progress |
+| `MISSING_CAVEAT` | Omitted a critical limitation (access restrictions, license, file size, deprecation) |
+| `NO_FALLBACK` | No alternative offered when the primary option was unavailable |
+
+See `doc/metrics.md` for full formulas and definitions.
+
+---
+
+## 3. Technical Documentation
+
+### Tech Stack
+
+| Component | Technology |
+|---|---|
+| Language | Python 3.12+ |
+| Package manager | [uv](https://docs.astral.sh/uv/) |
+| Agent framework | [pydantic-ai](https://ai.pydantic.dev/) |
+| Experiment tracking | [Opik](https://www.comet.com/docs/opik/) (self-hosted) |
+| Models | MistralAI · OpenAI · Albert (Etalab) — all OpenAI-compatible |
+| Code execution | Docker — isolated Python/CLI sandbox |
+| Web search | DuckDuckGo (`ddgs`) + HTTP fetch |
+| MCP client | `mcp` SDK (`MCPServerStreamableHTTP`) |
+
+---
+
+### Setup & Running Evaluations
+
+**Prerequisites:** Python 3.12+, [uv](https://docs.astral.sh/uv/), Docker (required only for `code` or `datagouv-cli` capabilities)
+
+#### Step 1 — Start Opik (self-hosted)
 
 ```bash
+git clone https://github.com/comet-ml/opik.git
+cd opik && ./opik.sh
+```
+
+The Opik UI will be available at [http://localhost:5173](http://localhost:5173).
+Full instructions: [Opik local deployment guide](https://www.comet.com/docs/opik/self-host/local_deployment)
+
+#### Step 2 — Clone & install
+
+```bash
+git clone <repo-url>
+cd datagouv-ai-evaluation
 uv sync
 ```
 
-### 2. Configure environment
-
-Copy `.env.example` to `.env` (or create `.env`) and fill in:
+#### Step 3 — Configure environment
 
 ```bash
-# Model API keys
-MISTRAL_API_KEY=...
-OPENAI_API_KEY=...       # only needed if using OpenAI models
-
-# Judge model — REQUIRED, no default fallback
-JUDGE_MODEL=mistral:mistral-medium-latest
-
-# Opik tracing
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5173/api/v1/private/otel
-OTEL_METRICS_EXPORTER=none
+cp .env.example .env
 ```
 
-### 3. Configure Opik SDK
+Edit `.env` and fill in the environment variables values.
+
+At least one model API key is required. The active model(s) are controlled by `benchmark/config/models.yml`.
+
+#### Step 4 — Configure Opik SDK
 
 ```bash
-opik configure  # point to http://localhost:5173
+uv run opik configure   # enter http://localhost:5173 when prompted
 ```
 
----
-
-## Running evaluations
+#### Running evaluations
 
 ```bash
 # Run all active evaluation types
-python -m agent_eval.experiment.run_experiments
+uv run python -m agent_eval.experiment.run_experiments
 
 # Run a single evaluation type
-python -m agent_eval.experiment.run_experiments --evaluation-type mcp_versions
+uv run python -m agent_eval.experiment.run_experiments --evaluation-type mcp_versions
 
-# Smoke test (1 task, no resource validation)
-python -m agent_eval.experiment.run_experiments --nb-samples 1 --no-validate --dry-run
+# Limit to N tasks (for smoke-testing)
+uv run python -m agent_eval.experiment.run_experiments --nb-samples 1
 
-# Override the judge model
-python -m agent_eval.experiment.run_experiments --judge-model openai:gpt-4o
+# Skip data.gouv.fr resource pre-flight checks
+uv run python -m agent_eval.experiment.run_experiments --no-validate
+
+# Build and validate configs without running any agents
+uv run python -m agent_eval.experiment.run_experiments --dry-run
 ```
 
-The run validates all referenced data.gouv.fr resources before executing (can be skipped with `--no-validate`). Results appear in the Opik UI at [http://localhost:5173](http://localhost:5173) under the configured project name.
+**Where to find results in Opik:**
+- Experiment scores → **Datasets → `datagouv_tasks_v2` → Experiments tab**
+- LLM traces → **Projects → `<OPIK_PROJECT_NAME>`**
 
 ---
 
-## Trace structure in Opik
-
-Each task execution produces a nested trace:
+### Repository Structure
 
 ```
-evaluation_task
-  task
-    agent:<model-name>          ← LLM call: prompt, answer, token usage
-      tool.<tool-name>          ← each MCP tool call: arguments + result
-      …
-  metrics_calculation
-    result_accuracy
-    tool_usage
-    trajectory_adherence
+agent_eval/
+├── _env.py                          # Loads .env relative to project root
+├── utils.py                         # OpenAI-compatible model wrapper
+│                                    #   (rate-limit retry, Mistral quirk patches)
+│
+├── benchmark/
+│   └── config/
+│       ├── evaluation_types.yml     # Evaluation types: metrics, capabilities, prompts
+│       ├── models.yml               # Models to evaluate (active: true/false)
+│       ├── mcp_versions.yml         # MCP server version URLs (active: true/false)
+│       ├── system_prompts.yml       # Named system prompt variants
+│       └── skills/                  # Skills documents for system prompt injection
+│
+├── tasks/
+│   ├── config/
+│   │   ├── example_task_0000.yml    # Task format template — read before adding tasks
+│   │   └── task_0001.yml … task_0010.yml
+│   ├── data/                        # Snapshot cache for resource validation
+│   ├── loader.py                    # Parses task YAMLs into Task dataclasses
+│   └── resource_validator.py        # Pre-flight validation against data.gouv.fr API
+│
+├── semantic_layer/
+│   ├── resolver.py                  # Version-aware action ↔ tool name resolver
+│   └── config/
+│       ├── actions.yml              # Semantic action → MCP / CLI / API implementations
+│       └── action_args.yml          # Semantic arg name → framework-specific arg name
+│
+├── evaluators/
+│   ├── core/                        # Pure evaluation logic — no Opik dependency
+│   │   ├── _math.py                 # Shared safe_div, f1_score helpers
+│   │   ├── action_mapper.py         # Literal tool calls → semantic action instances
+│   │   ├── action_params.py         # LLM judge: action parameter correctness
+│   │   ├── action_usage.py          # Deterministic action usage (precision/recall/F1)
+│   │   ├── trajectory.py            # LLM judge: action sequence adherence
+│   │   ├── result_accuracy.py       # LLM judge: evaluation criteria validation
+│   │   ├── efficiency.py            # Latency + token efficiency scores
+│   │   ├── failure_modes.py         # LLM judge: failure mode detection
+│   │   ├── judge_model.py           # Judge model loader
+│   │   ├── config/
+│   │   │   ├── judge_model.yml      # Which model acts as the LLM judge
+│   │   │   └── failure_modes.yml    # Failure mode names and descriptions
+│   │   └── prompts/                 # Prompt builders, one per evaluator
+│   └── opik/                        # Opik BaseMetric wrappers
+│       ├── result_accuracy_metric.py    # result_accuracy + efficiency + failure_modes
+│       ├── action_metric.py             # action_mapper + usage + params + trajectory
+│       ├── tool_call_stats_metric.py    # Literal tool call counts (no LLM)
+│       └── experiment_metrics.py        # Experiment-level aggregated scores
+│
+└── experiment/
+    ├── run_experiments.py           # CLI entry point
+    ├── run_config.py                # Builds run configs, fetches MCP tool schemas
+    ├── task.py                      # Agent runner + Opik trace hooks
+    ├── tracing.py                   # Opik endpoint reachability check
+    ├── mcp_tools_getter.py          # MCP tool schema discovery
+    └── agent/
+        ├── builder.py               # Assembles toolsets from capability list
+        ├── mcp.py                   # MCP server toolset
+        ├── code.py                  # Docker-based Python/CLI execution
+        ├── web_search.py            # DuckDuckGo search + HTTP fetch
+        ├── skills.py                # Skills document injection
+        └── Dockerfile               # Base image + datagouv-cli variant
+
+doc/
+├── metrics.md                       # Full metric formulas and definitions
+├── vocabulary.md                    # Semantic layer naming conventions
+└── implementation_notes.md          # Architecture decisions and known issues
+
+tests/
+└── test_action_metrics.py           # Unit tests for action mapper and usage metrics
 ```
 
 ---
 
-## Adding tasks
+### Contributing
 
-Create `agent_eval/tasks/config/task_XXXX.yml` following the format in `example_task_0000.yml`. Set `meta.status: active` when the task is ready. Run with `--no-validate --dry-run` first to check the YAML parses correctly.
+**Adding a task**
 
-## Adding models or MCP versions
+1. Create `agent_eval/tasks/config/task_XXXX.yml` following the format in `example_task_0000.yml`
+2. Set `meta.status: draft` while iterating, `active` when ready
+3. Bump `DATASET_VERSION` in `run_experiments.py` so the Opik dataset is refreshed
+4. Validate with `--dry-run --no-validate` before running agents
 
-Edit `agent_eval/benchmark/config/models.yml` or `mcp_versions.yml`. Set `active: true` for entries to include in the next run. No code changes needed.
+**Adding a model**
+
+Edit `benchmark/config/models.yml` and set `active: true` on the entry. No code changes required — the model must use an OpenAI-compatible API.
+
+**Adding an MCP version**
+
+Edit `benchmark/config/mcp_versions.yml`. If the new version renames tools, add entries to `semantic_layer/config/actions.yml` with the appropriate version specifiers.
+
+**Adding an evaluation type**
+
+Edit `benchmark/config/evaluation_types.yml`. Define which capabilities, system prompts, and metrics apply.
+
+---
+
+## 4. Limitations
+
+This framework is an early-stage MVP. The following limitations should be understood before interpreting results.
+
+**Single human labeler.** All task ground truths — evaluation criteria and action chains — were defined by one person with no cross-labeling or inter-rater agreement measurement. Defining what constitutes a "correct" or "optimal" response to a data discovery question is not always straightforward, and the current labels reflect one person's judgment. Disagreement between labelers would be expected on several tasks.
+
+**Small evaluation set.** 10 tasks is enough for qualitative assessment and catching obvious regressions, but too few for statistically significant comparisons between configurations. Metric differences of a few percentage points between two models or MCP versions should be treated as directional signals, not conclusions. Expanding the task set via semi-automated generation with human review is planned.
+
+**Metrics under development.** The metric formulas — particularly trajectory adherence scoring bands, the minimal/optimal split thresholds, and the weighting of action-instance vs. action-type F1 — have not been validated against human agreement scores. Numeric scores are useful for relative comparisons within a run, but their absolute values are not calibrated.
+
+**LLM-as-a-judge variance.** Result accuracy, trajectory adherence, parameter correctness, and failure mode detection all rely on a judge LLM. Judge outputs vary across runs, and the judge's own capabilities and biases affect every score. The judge has not been calibrated against human annotations.
+
+**Implementation bias in code and CLI capabilities.** The `code` and `datagouv-cli` capabilities run in a hardened Docker container with restricted network access and a controlled Python environment. This setup does not reflect how these capabilities would be used in real coding agents (Claude Code, Cursor, Copilot Workspace), which have different execution environments, file system access, and permission models. Results for these configurations should be interpreted as performance within the evaluation harness, not as predictions of real-world agentic coding performance.
+
+**Skills injection method.** When the `skills` capability is enabled, the full skills document is injected as a block into the system prompt. In production agent deployments, skills or tool documentation are often injected differently: as part of tool descriptions, retrieved dynamically from memory, or chunked to fit context constraints. The current injection method may over- or under-represent the practical benefit of having skills available, and doesn't reflect the context window pressure realistic deployments face.
+
+**Static resource snapshots.** Resource pre-flight validation compares live data.gouv.fr API responses against pre-computed snapshots in `tasks/data/`. If a dataset is restructured, renamed, or removed (beyond what the snapshots track), a task may become unanswerable without the snapshot being refreshed.
+
+**Single-turn only.** All tasks are single-turn: one user prompt, one agent response. Multi-turn conversations — where users refine their questions, ask for clarifications, or iterate on partial results — are not evaluated. Real user interactions frequently involve multiple turns.
+
+**No cross-dataset or temporal evaluation.** Tasks are fixed to specific datasets and resources as they existed when the tasks were authored. The catalog evolves; a task that was well-defined when authored may become ambiguous or unanswerable if the referenced resource is updated, deprecated, or replaced.
