@@ -161,6 +161,8 @@ Task files: `agent_eval/tasks/config/task_XXXX.yml`. Format documented in `examp
 
 Four groups of metrics, all computed per task and aggregated to experiment level (averaged across the dataset for a given model × configuration combination).
 
+The metric design is grounded in existing agent-eval frameworks — **DeepEval** (Task Completion, Tool Correctness, Step Efficiency, Plan Adherence), **RAGAS** (Tool Call F1), **Arize Phoenix** (Tool Selection / Invocation / Response Handling) — and recent tool-use evaluation papers. The exact score-name → source mapping lives in [`doc/metrics.md`](doc/metrics.md#sources-of-inspiration).
+
 #### 1. Result Accuracy (LLM-as-a-judge)
 
 Did the agent's response satisfy each evaluation criterion?
@@ -218,7 +220,7 @@ Nine named failure patterns, each scored 0 (absent) or 1 (present):
 | `MISSING_CAVEAT` | Omitted a critical limitation (access restrictions, license, file size, deprecation) |
 | `NO_FALLBACK` | No alternative offered when the primary option was unavailable |
 
-See `doc/metrics.md` for full formulas and definitions.
+For full formulas, every emitted score name, and the cross-platform / paper attribution table, see [`doc/metrics.md`](doc/metrics.md).
 
 ---
 

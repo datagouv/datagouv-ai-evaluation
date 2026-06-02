@@ -6,9 +6,28 @@ Decisions, dead ends, and things to remember so we don't re-litigate them.
 
 ## Evaluation platform: why Opik
 
-Several platforms were benchmarked (see `README_legacy.md` for details). The decisive criterion was **aggregated experiment-level metrics**: being able to compute averages across a full dataset, not just per-task scores. Opik was the only self-hosted option that supported this natively via its `evaluate()` API. Phoenix Arize was tested first and dropped for this reason.
+### What we needed
 
-Opik must be run locally via Docker — see the README for installation instructions. The Python SDK (`opik`) handles dataset management, experiment runs, and scoring. All trace data is stored locally.
+1. **Experiment-level aggregated metrics** — averages, F1s, totals across a full dataset, not just per-task scores. This is the core of "is config A better than config B?".
+2. **Self-hosted, open-source UI** — no per-seat cloud cap, no data leaving the org.
+3. **An intuitive UI for non-GenAI-specialists** — the team includes a variety of profiles who need to read results without an evaluation-engineering learning curve.
+4. **OpenAI-compatible model setup** — we already use Mistral, OpenAI, and Albert (Etalab) through the same API surface.
+
+### Platforms benchmarked
+
+| Platform | Status | Verdict |
+|---|---|---|
+| **Phoenix Arize** | Tested | Strong tracing. **Blocker:** no aggregated metrics over a dataset — only per-example. Kills cross-config comparison. |
+| **Langfuse** | Tested | Excellent tracing and a polished UI for engineers. **Blocker:** UI dense/complex — too steep a learning curve for the non-eng team members who need to inspect results. |
+| **MLflow GenAI** | Considered | General-purpose ML platform, can wrap DeepEval/Phoenix metrics under one roof. **Blocker:** many GenAI features still Databricks-only. |
+| **DeepEval** | Considered | Well-known, broad metric library, used by IAE. **Blocker:** the OSS package has no self-hosted UI; the free cloud is capped at one project / two users. We still mine DeepEval's metric definitions — see `metrics.md`. |
+| **ZenML** | Considered | Whole MLOps platform covering training + GenAI, akin to an open-source Dataiku. **Blocker:** too many concepts and features for an eval-focused project. |
+| **RAGAS** | Skimmed | RAG-oriented; useful as a **source of metric definitions** (tool-call F1, topic adherence ideas — see `metrics.md`), not as a platform here. |
+| **Opik** | **Selected** | Open-source self-hosted UI, native experiment-level aggregation via `evaluate()`, OpenAI-compatible model setup, low UI complexity for non-engineers. Known quirks (compare-view fan-out across versions, OTLP duplicate ingestion) are documented in this file and worked around. |
+
+### Operational notes
+
+Opik runs locally via Docker (`./opik.sh`). The Python SDK (`opik`) handles dataset management, experiment runs, and scoring. All trace data is stored locally.
 
 ---
 
@@ -48,7 +67,7 @@ Opik metrics run independently and cannot share Python objects — only numeric 
 
 ### Why efficiency metrics are in `ResultAccuracyMetric`
 
-Efficiency metrics (latency, token usage, time/token efficiency) were originally in `ToolUsageMetric`. The `data_contamination` evaluation type does not include `tool_usage` in its metrics list, so efficiency was never computed for those experiments. Moving efficiency to `ResultAccuracyMetric` (which always runs) fixed the silent omission.
+Efficiency metrics (latency, token usage, time/token efficiency) were originally in `ToolUsageMetric` (now `ActionMetric`). The `data_contamination` evaluation type does not include `action_usage` in its metrics list, so efficiency was never computed for those experiments. Moving efficiency to `ResultAccuracyMetric` (which always runs) fixed the silent omission.
 
 ---
 
@@ -84,17 +103,16 @@ The solution is to stay entirely within the Opik SDK. Using `@opik.track` on the
 
 The resulting trace hierarchy:
 ```
-evaluation_task
-  task
-    agent:mistral-small-latest   ← @opik.track, includes prompt/answer/tokens
-      tool.search_datasets        ← @opik.track, includes args + result[:500]
-      tool.get_dataset_info
-      …
-  metrics_calculation
-    result_accuracy
-    tool_usage
-    trajectory_adherence
+evaluation_task                    ← Opik engine
+  task                             ← Opik engine wrapper
+    agent:<model-name>             ← @opik.track, includes prompt/answer/tokens
+      llm_turn_1                   ← @opik.track, one per ModelResponse
+        <tool_name>                ← @opik.track, args + result[:4000]
+        thinking                   ← @opik.track, only if ThinkingPart present
+      llm_turn_N                   ← final answer turn
+  metrics_calculation              ← Opik engine; children are NOT spans (metrics use track=False)
 ```
+The scoring metrics (`ResultAccuracyMetric`, `ToolCallStatsMetric`, `ActionMetric`) all pass `track=False` to `BaseMetric.__init__`, so they don't create per-metric child spans under `metrics_calculation`. See "Dataset versioning" below for why that matters (the dataset-compare view fans out one row per scorer span).
 
 **Important**: `logfire` is still installed as a dependency (pydantic-ai uses it for `instrument=True`), but `logfire.configure()` / `logfire.instrument_pydantic_ai()` are called in `setup_tracing()` and only affect the logfire OTLP pipeline (which is separate and can be ignored or removed). The actual trace nesting comes from `@opik.track`.
 
@@ -231,20 +249,11 @@ Three legacy evaluator files were deleted (`evaluators/experiment_metrics.py`, `
 
 `validate_all_tasks()` runs HTTP checks against live data.gouv.fr resources. When `--nb-samples N` is passed (e.g. for a smoke test), only the first N tasks are validated, not the full set. This avoids validating resources for tasks that won't run.
 
-## Other notes
-
-- does not truncate trace tool results because it is hard to debug # done
-- add albert api for model provider # done
-- add good mcp versions number # done
-- remove the backoff factor from latency calculation to avoid biaising latency results for some providers : compute net_lantecy_ms for lantency_ms now # done
-
----
-
 ## Semantic action layer
 
-Task YAMLs define ground-truth tool sequences using **semantic action names** (`search.datasets`, `get.dataset.info`, etc.) rather than MCP tool names. The semantic layer (`agent_eval/benchmark/config/semantic_layer.yml`) maps (action, framework, version) → concrete tool names at evaluation time.
+Task YAMLs define ground-truth tool sequences using **semantic action names** (`search.datasets`, `get.dataset.info`, etc.) rather than MCP tool names. The semantic layer (`agent_eval/semantic_layer/config/actions.yml`) maps (action, framework, version) → concrete tool / CLI command / API endpoint at evaluation time. See [`doc/vocabulary.md`](vocabulary.md) for the naming convention and the active action list.
 
-`SemanticLayerResolver` (`agent_eval/evaluators/core/semantic_layer.py`) handles this resolution via `packaging.specifiers.SpecifierSet` for version matching. `ToolUsageMetric.score()` calls `_resolve_to_concrete()` before matching actual calls against ground truth.
+`SemanticLayerResolver` (`agent_eval/evaluators/core/semantic_layer.py`) handles this resolution via `packaging.specifiers.SpecifierSet` for version matching. `ActionMetric.score()` runs the action mapper once and emits usage + parameter + trajectory scores from the resolved semantic actions.
 
 Semantic action → MCP tool name mapping (version `<=0.2.24`):
 - `search.datasets` → `search_datasets`
@@ -253,8 +262,7 @@ Semantic action → MCP tool name mapping (version `<=0.2.24`):
 - `get.dataset.resources` → `list_dataset_resources`
 - `get.resource.info` → `get_resource_info`
 - `get.resource.profile` → `query_resource_data` (proxy; no dedicated MCP tool)
-- `get.data` → `query_resource_data` (all rows, no filtering)
-- `analyze.data` → `query_resource_data` (with filters/aggregations)
+- `get.data` → `query_resource_data` (covers both raw data retrieval and server-side filtering / aggregation — the action mapper disambiguates by source)
 - `get.dataservice.info` → `get_dataservice_info`
 - `get.dataservice.openapi_spec` → `get_dataservice_openapi_spec`
 
