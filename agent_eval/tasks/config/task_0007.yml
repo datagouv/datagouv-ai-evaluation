@@ -13,7 +13,7 @@ meta:
   optimal_tool_invocation_type: multi_tool
 
 prompt: >
-  Je souhaiterais savoir sous quels délais seront disponibles les listes des élus
+  J'aimerais savoir dans combien de temps seront disponibles les listes des élus
   communaux et intercommunaux suite aux élections municipales 2026.
 
 draft_answer: >
