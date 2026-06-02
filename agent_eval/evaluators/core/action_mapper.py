@@ -55,15 +55,16 @@ _CODE_CATEGORIES = (
 )
 _CODE_TOOLS = ("execute_python", "execute_cli")
 
-_ALL_SEMANTIC_ACTIONS = [
-    "search.datasets", "search.dataservices",
-    "get.dataset.info", "get.dataset.resources",
-    "get.resource.info", "get.resource.profile",
-    "get.data",
-    "get.dataservice.info", "get.dataservice.openapi_spec",
-]
-
 _NON_ACTIONS = ("python_local_analysis", "unclassified")
+
+# Module-level cache so actions.yml / action_args.yml are parsed only once per path.
+_resolver_cache: dict[Path, SemanticLayerResolver] = {}
+
+
+def _get_resolver(semantic_layer_dir: Path) -> SemanticLayerResolver:
+    if semantic_layer_dir not in _resolver_cache:
+        _resolver_cache[semantic_layer_dir] = SemanticLayerResolver(semantic_layer_dir)
+    return _resolver_cache[semantic_layer_dir]
 
 
 def _is_error(result: Any) -> bool:
@@ -158,7 +159,7 @@ def _mcp_name_to_semantic_candidates(
     (get.resource.profile with criteria, get.data without).
     """
     results = []
-    for action in _ALL_SEMANTIC_ACTIONS:
+    for action in resolver.action_names():
         for entry in resolver.resolve_tool_entries(action, "mcp", mcp_version):
             if entry.name == tool_name:
                 results.append((action, entry.criteria))
@@ -172,7 +173,7 @@ def _datagouv_cli_to_semantic(
     """Prefix-match a datagouv CLI command against CLI command patterns in the semantic layer."""
     stripped = command.strip()
     matches = []
-    for action in _ALL_SEMANTIC_ACTIONS:
+    for action in resolver.action_names():
         for entry in resolver.resolve_tool_entries(action, "cli", ""):
             if entry.name and stripped.startswith(entry.name):
                 matches.append(action)
@@ -214,7 +215,7 @@ def _classify_deterministic(
         return [
             ActionInstance(
                 action=a,
-                args=resolved_args,
+                args=dict(resolved_args),
                 source_tool_call_id=call_id,
                 source_tool_name=name,
                 capability_category=category,
@@ -347,8 +348,8 @@ async def map_action_calls(
     semantic_layer_dir: Path,
     judge_model: JudgeModel | None = None,
 ) -> ActionMapperOutput:
-    resolver = SemanticLayerResolver(semantic_layer_dir)
-    all_semantic_actions = list(resolver._actions.keys())
+    resolver = _get_resolver(semantic_layer_dir)
+    all_semantic_actions = resolver.action_names()
 
     output = ActionMapperOutput()
 

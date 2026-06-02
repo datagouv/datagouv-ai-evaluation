@@ -1,14 +1,11 @@
 import asyncio
 import logging
 
-from dotenv import load_dotenv, dotenv_values
-
 from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-load_dotenv(override=True)
-config = dotenv_values(".env")
+from agent_eval._env import ENV_VALUES
 
 logger = logging.getLogger(__name__)
 
@@ -89,11 +86,11 @@ def get_model_config_object(model_config: dict) -> CompatibleOpenAIChatModel:
     # TODO: create a model_config class to validate parsing for judge (judge_model.py) and task models (benchmark/loader.py)
     model_name = model_config["name"]
     provider_base_url = model_config["provider_base_url"]
-    provider_token = config.get(model_config["provider_token"], None)
+    provider_token = ENV_VALUES.get(model_config["provider_token"])
     if not provider_token:
-        raise TypeError(
-            f"Please set the API token in the following environment variable {model_config['provider_token']}"
-            f"for the following provider: {model_config['provider']}"
+        raise ValueError(
+            f"Please set the API token in environment variable {model_config['provider_token']} "
+            f"for provider: {model_config['provider']}"
         )
 
     return CompatibleOpenAIChatModel(

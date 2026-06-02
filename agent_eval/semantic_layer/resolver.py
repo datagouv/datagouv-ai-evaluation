@@ -123,6 +123,10 @@ class SemanticLayerResolver:
         """
         return [e.name for e in self.resolve_tool_entries(action, framework, version)]
 
+    def action_names(self) -> list[str]:
+        """Return all known semantic action names."""
+        return list(self._actions.keys())
+
     def resolve_arg_name(self, semantic_arg: str, framework: str, version: str) -> str:
         """
         Map a semantic arg name to the framework-specific name for the given version.

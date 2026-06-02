@@ -3,30 +3,22 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
-from dotenv import load_dotenv, dotenv_values
+
 import opik
+from dotenv import load_dotenv
 from opik import opik_context
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelResponse, TextPart, ThinkingPart, ToolCallPart, ToolReturnPart
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.tools import Tool as PydanticTool
+
 from agent_eval.utils import get_model_config_object
 from agent_eval.experiment.agent import build_toolsets
 from agent_eval.experiment.agent.builder import CapabilityUnavailableError
 from agent_eval.experiment.agent.code import check_and_create_session
 
 load_dotenv(override=True)
-config = dotenv_values(".env")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-
-
-# CapabilityUnavailableError is re-exported from agent.builder for callers that import it here
-# build_toolsets is imported from agent_eval.experiment.agent
+logger = logging.getLogger(__name__)
 
 
 # ── Tool call extraction ──────────────────────────────────────────────────────
@@ -91,8 +83,6 @@ class AgentResult:
 
 
 async def run_agent(task: dict[str, Any]) -> AgentResult:
-    logger = logging.getLogger(__name__)
-
     capabilities: list[str] = task.get("capabilities") or []
 
     # code capability requires a persistent Docker container for the task's lifetime
@@ -110,8 +100,6 @@ async def _run_agent_inner(
     capabilities: list[str],
     docker_session,
 ) -> AgentResult:
-    logger = logging.getLogger(__name__)
-
     # May raise CapabilityUnavailableError — caller handles it
     all_tools = build_toolsets(capabilities, task, docker_session=docker_session)
     # pydantic-ai distinguishes individual Tool objects (tools=) from AbstractToolset
@@ -181,7 +169,6 @@ def _log_thinking_span(thinking: str) -> None:
     The "output" key is used because Opik's LLM span renderer surfaces that key
     as the primary display text.
     """
-    logger = logging.getLogger(__name__)
     logger.debug("Logging thinking span (%d chars)", len(thinking))
     opik_context.update_current_span(
         name="thinking",
@@ -226,11 +213,6 @@ def _log_messages_as_spans(messages: list, model: str) -> None:
     with tool calls as child tool spans.  This surfaces the full thinking chain
     (text before/between/after tool calls) in the Opik trace tree.
     """
-    diag_logger = logging.getLogger(__name__)
-    diag_logger.debug("[msg-diag] _log_messages_as_spans called: %d messages total", len(messages))
-    for i, msg in enumerate(messages):
-        diag_logger.debug("[msg-diag]   msg[%d] type=%s", i, type(msg).__name__)
-
     # Pre-collect all tool return payloads keyed by tool_call_id
     tool_returns: dict[str, Any] = {}
     for msg in messages:
@@ -246,22 +228,6 @@ def _log_messages_as_spans(messages: list, model: str) -> None:
         text_parts = [p for p in parts if isinstance(p, TextPart)]
         thinking_parts = [p for p in parts if isinstance(p, ThinkingPart)]
         tool_parts = [p for p in parts if isinstance(p, ToolCallPart)]
-        other_parts = [p for p in parts if not isinstance(p, (TextPart, ThinkingPart, ToolCallPart, ToolReturnPart))]
-        diag_logger.debug(
-            "[msg-diag] ModelResponse: text=%d thinking=%d tool_call=%d other=%s",
-            len(text_parts),
-            len(thinking_parts),
-            len(tool_parts),
-            [f"{type(p).__name__}({getattr(p, 'content', '')[:40]!r})" for p in other_parts],
-        )
-        if text_parts:
-            diag_logger.debug("[msg-diag]   TextPart[0][:80]: %r", text_parts[0].content[:80])
-        if thinking_parts:
-            diag_logger.debug(
-                "[msg-diag]   ThinkingPart[0]: content_len=%d content[:80]=%r",
-                len(thinking_parts[0].content),
-                thinking_parts[0].content[:80],
-            )
         if not text_parts and not thinking_parts and not tool_parts:
             continue
         turn += 1
@@ -304,12 +270,10 @@ _RETRY_BACKOFF = [
     80,
     90,
     120,
-]  # Albert API RPM quotas is 10, to avoid 429 errors
+]  # Albert API RPM quota is 10; first wait > 60s ensures the window resets
 
 
 def make_task(run_config: dict[str, Any]):
-    logger = logging.getLogger(__name__)
-
     def task(dataset_item: dict) -> dict:
         task_data = dataset_item["input"] | run_config
         last_exc: Exception | None = None

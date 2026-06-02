@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from agent_eval.evaluators.core._math import safe_div
+
 
 @dataclass
 class EfficiencyMetrics:
@@ -28,9 +30,6 @@ def compute_efficiency(
     Both are "score per unit cost" — higher is better.
     Returns 0.0 on division by zero (e.g. zero tokens or zero latency).
     """
-    def safe_div(a: float, b: float) -> float:
-        return round(a / b, 6) if b > 0 else 0.0
-
     token_k = token_usage / 1_000  # per 1k tokens
     latency_min = latency_ms / 60_000  # per minute
 

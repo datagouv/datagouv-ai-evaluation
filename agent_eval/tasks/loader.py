@@ -4,7 +4,7 @@ import hashlib
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -88,7 +88,7 @@ class ResourceCheck:
 class Resource:
     type: str
     id: str
-    dataset_id: Optional[str]
+    dataset_id: str | None
     checks: list[ResourceCheck] = field(default_factory=list)
 
 

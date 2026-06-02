@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
+from agent_eval.evaluators.core._math import safe_div
 from agent_eval.evaluators.core.prompts import result_accuracy as prompts
 from agent_eval.tasks.loader import EvaluationCriteria
 from agent_eval.evaluators.core.judge_model import JudgeModel
@@ -100,9 +101,6 @@ async def compute_result_accuracy(
     total_opt = len(results_optimal)
     validated_min = sum(1 for r in results_minimal if r.validated)
     validated_opt = sum(1 for r in results_optimal if r.validated)
-
-    def safe_div(a: int, b: int) -> float:
-        return round(a / b, 6) if b > 0 else 0.0
 
     return ResultAccuracyOutput(
         results_minimal=results_minimal,

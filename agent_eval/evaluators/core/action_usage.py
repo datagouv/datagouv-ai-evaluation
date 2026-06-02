@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from agent_eval.evaluators.core._math import safe_div, f1_score
 from agent_eval.evaluators.core.action_mapper import ActionInstance
 from agent_eval.tasks.loader import RequiredAction
 
@@ -86,12 +87,6 @@ def compute_action_usage_rates(
     Derive rate metrics from basics + LLM-judged matched_actions counts.
     All rates are [0, 1] and guard against division by zero (return 0.0).
     """
-    def safe_div(a: float, b: float) -> float:
-        return round(a / b, 6) if b > 0 else 0.0
-
-    def f1(p: float, r: float) -> float:
-        return round(2 * p * r / (p + r), 6) if (p + r) > 0 else 0.0
-
     p_type_min = safe_div(basics.matched_action_types_minimal, basics.unique_action_names)
     p_type_opt = safe_div(basics.matched_action_types_optimal, basics.unique_action_names)
     r_type_min = safe_div(basics.matched_action_types_minimal, basics.required_action_types_minimal)
@@ -107,12 +102,12 @@ def compute_action_usage_rates(
         precision_action_type_optimal=p_type_opt,
         recall_action_type_minimal=r_type_min,
         recall_action_type_optimal=r_type_opt,
-        f1_action_type_minimal=f1(p_type_min, r_type_min),
-        f1_action_type_optimal=f1(p_type_opt, r_type_opt),
+        f1_action_type_minimal=f1_score(p_type_min, r_type_min),
+        f1_action_type_optimal=f1_score(p_type_opt, r_type_opt),
         precision_action_minimal=p_act_min,
         precision_action_optimal=p_act_opt,
         recall_action_minimal=r_act_min,
         recall_action_optimal=r_act_opt,
-        f1_action_minimal=f1(p_act_min, r_act_min),
-        f1_action_optimal=f1(p_act_opt, r_act_opt),
+        f1_action_minimal=f1_score(p_act_min, r_act_min),
+        f1_action_optimal=f1_score(p_act_opt, r_act_opt),
     )
