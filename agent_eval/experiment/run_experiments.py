@@ -73,7 +73,7 @@ def get_scoring_metrics(metrics: list[str], judge_model_path: Path) -> list:
 # rows from prior submissions. Within one version, re-runs reuse the same dataset and
 # skip insert (no version churn). If you forget to bump after editing a task, the
 # dataset stays on the old content — see the warning logged in get_or_create_dataset.
-DATASET_VERSION = "v1"
+DATASET_VERSION = "v2"
 
 DATASET_NAME_BASE = "datagouv_tasks"
 
@@ -82,7 +82,7 @@ def _dataset_name() -> str:
     return f"{DATASET_NAME_BASE}_{DATASET_VERSION}"
 
 
-def get_or_create_dataset(client: opik.Opik, tasks) -> opik.Dataset:
+def get_or_create_dataset(client: opik.Opik, tasks, project_name: str) -> opik.Dataset:
     """Get or seed the versioned dataset.
 
     The single seed pattern (insert ONLY when empty) keeps every item at exactly one
@@ -91,7 +91,6 @@ def get_or_create_dataset(client: opik.Opik, tasks) -> opik.Dataset:
     — that yields a fresh dataset name + fresh item ids, no collision with orphans.
     """
     name = _dataset_name()
-    project_name = os.environ.get("OPIK_PROJECT_NAME")
     dataset = client.get_or_create_dataset(name=name, project_name=project_name)
     items = [task_to_opik_item(task, version=DATASET_VERSION) for task in tasks]
     existing_ids = {item.get("id") for item in dataset.get_items()}
@@ -175,6 +174,15 @@ def main() -> None:
 
     load_dotenv(override=True)
 
+    project_name = os.environ.get("OPIK_PROJECT_NAME")
+    if not project_name:
+        logger.error(
+            "OPIK_PROJECT_NAME is not set. Add it to your .env file "
+            "(e.g. OPIK_PROJECT_NAME=datagouv-ai-evaluation)."
+        )
+        sys.exit(1)
+    logger.info("Opik project: %s", project_name)
+
     setup_tracing()
 
     # ── Load active tasks ─────────────────────────────────────────────────────
@@ -227,7 +235,7 @@ def main() -> None:
 
     # ── Run evaluations ───────────────────────────────────────────────────────
     client = opik.Opik()
-    dataset = get_or_create_dataset(client, tasks)
+    dataset = get_or_create_dataset(client, tasks, project_name)
 
     for run_config in run_configs:
         exp_name = experiment_name(run_config)
@@ -252,7 +260,6 @@ def main() -> None:
                 "metrics": run_config["metrics"],
             },
             nb_samples=args.nb_samples,
-            project_name=os.environ.get("OPIK_PROJECT_NAME"),
         )
 
         logger.info("Experiment complete: %s", exp_name)
