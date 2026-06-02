@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -25,14 +26,15 @@ from opik.evaluation import evaluate
 
 from agent_eval.benchmark.loader import build_run_configurations
 from agent_eval.evaluators.opik.experiment_metrics import compute_experiment_metrics
+from agent_eval.evaluators.opik.action_metric import ActionMetric
 from agent_eval.evaluators.opik.result_accuracy_metric import ResultAccuracyMetric
-from agent_eval.evaluators.opik.tool_usage_metric import ToolUsageMetric
-from agent_eval.evaluators.opik.trajectory_metric import TrajectoryAdherenceMetric
+from agent_eval.evaluators.opik.tool_call_stats_metric import ToolCallStatsMetric
 from agent_eval.experiment.run_config import build_all_run_configs
 from agent_eval.experiment.task import make_task
 from agent_eval.tasks.loader import load_all_tasks, task_to_opik_item
 from agent_eval.tasks.resource_validator import raise_on_errors, validate_all_tasks
 from agent_eval.experiment.tracing import setup_tracing
+from agent_eval.experiment.agent.code import ensure_docker_image
 
 BENCHMARK_DIR = Path(__file__).parents[1] / "benchmark" / "config"
 TASKS_DIR = Path(__file__).parents[1] / "tasks" / "config"
@@ -54,22 +56,58 @@ def get_scoring_metrics(metrics: list[str], judge_model_path: Path) -> list:
     selected.append(
         ResultAccuracyMetric(judge_model_path=judge_model_path)
     )  # includes efficiency + failure modes
-    if "tool_usage" in metrics:
-        selected.append(ToolUsageMetric(judge_model_path=judge_model_path))
-        selected.append(TrajectoryAdherenceMetric(judge_model_path=judge_model_path))
+    selected.append(ToolCallStatsMetric())  # literal tool-call efficiency tracking
+    if "action_usage" in metrics:
+        # ActionMetric runs the mapper once and emits usage + params + trajectory.
+        selected.append(ActionMetric(judge_model_path=judge_model_path))
     return selected
 
 
 # ── Opik dataset helper ───────────────────────────────────────────────────────
 
 
-def get_or_create_dataset(
-    client: opik.Opik, tasks, evaluation_type: str
-) -> opik.Dataset:
-    name = f"datagouv_mcp_{evaluation_type}"
-    dataset = client.get_or_create_dataset(name=name)
-    items = [task_to_opik_item(task) for task in tasks]
-    dataset.insert(items)
+# ── Dataset version ───────────────────────────────────────────────────────────
+# BUMP THIS WHENEVER YOU ADD/EDIT/REMOVE A TASK to get a clean fresh dataset.
+# The version is folded into the dataset name AND each item id, so a new version
+# produces entirely fresh ids that don't collide with orphaned `dataset_item_versions`
+# rows from prior submissions. Within one version, re-runs reuse the same dataset and
+# skip insert (no version churn). If you forget to bump after editing a task, the
+# dataset stays on the old content — see the warning logged in get_or_create_dataset.
+DATASET_VERSION = "v1"
+
+DATASET_NAME_BASE = "datagouv_tasks"
+
+
+def _dataset_name() -> str:
+    return f"{DATASET_NAME_BASE}_{DATASET_VERSION}"
+
+
+def get_or_create_dataset(client: opik.Opik, tasks) -> opik.Dataset:
+    """Get or seed the versioned dataset.
+
+    The single seed pattern (insert ONLY when empty) keeps every item at exactly one
+    `dataset_item_versions` row, which is what stops Opik's dataset-compare view from
+    fanning out results ("Avg of N trials"). To apply task changes, bump DATASET_VERSION
+    — that yields a fresh dataset name + fresh item ids, no collision with orphans.
+    """
+    name = _dataset_name()
+    project_name = os.environ.get("OPIK_PROJECT_NAME")
+    dataset = client.get_or_create_dataset(name=name, project_name=project_name)
+    items = [task_to_opik_item(task, version=DATASET_VERSION) for task in tasks]
+    existing_ids = {item.get("id") for item in dataset.get_items()}
+    missing = [item for item in items if item["id"] not in existing_ids]
+    if not existing_ids:
+        logger.info("Seeding %s with %d item(s)", name, len(items))
+        dataset.insert(items)
+    elif missing:
+        logger.warning(
+            "%s already exists but %d task(s) are missing. NOT inserting (it would "
+            "re-version every item and re-trigger the compare fan-out). Bump "
+            "DATASET_VERSION in run_experiments.py to pick up task changes cleanly.",
+            name, len(missing),
+        )
+    else:
+        logger.info("Dataset %s already up to date (%d items)", name, len(items))
     return dataset
 
 
@@ -77,11 +115,16 @@ def get_or_create_dataset(
 
 
 def experiment_name(run_config: dict) -> str:
-    caps = "+".join(run_config.get("capabilities") or []) or "none"
-    version = run_config.get("mcp_version") or "no-tools"
+    evaluation_type = run_config["evaluation_type"]
     model = run_config.get("model", {}).get("name")
+    caps = "+".join(run_config.get("capabilities") or []) or "none"
+    mcp_version = run_config.get("mcp_version")
     sp = run_config.get("system_prompt_name", "default")
-    return f"datagouv-{run_config['evaluation_type']}-{version}-{model}-{caps}-{sp}"
+    parts = ["datagouv", evaluation_type, model, caps]
+    if mcp_version:
+        parts.append(mcp_version)
+    parts.append(sp)
+    return "-".join(parts)
 
 
 # ── Validation logging ────────────────────────────────────────────────────────
@@ -169,6 +212,13 @@ def main() -> None:
     logger.info("Building %d run configurations…", len(run_configs_raw))
     run_configs = asyncio.run(build_all_run_configs(run_configs_raw))
 
+    # ── Docker image pre-flight ───────────────────────────────────────────────
+    if any("code" in (rc.get("capabilities") or []) for rc in run_configs):
+        has_datagouv_cli = any(
+            "datagouv-cli" in (rc.get("capabilities") or []) for rc in run_configs
+        )
+        ensure_docker_image(has_datagouv_cli=has_datagouv_cli)
+
     if args.dry_run:
         for rc in run_configs:
             logger.info("[DRY RUN] Would run: %s", experiment_name(rc))
@@ -177,12 +227,12 @@ def main() -> None:
 
     # ── Run evaluations ───────────────────────────────────────────────────────
     client = opik.Opik()
+    dataset = get_or_create_dataset(client, tasks)
 
     for run_config in run_configs:
         exp_name = experiment_name(run_config)
         logger.info("Starting experiment: %s", exp_name)
 
-        dataset = get_or_create_dataset(client, tasks, run_config["evaluation_type"])
         scoring_metrics = get_scoring_metrics(run_config["metrics"], JUDGE_MODEL_PATH)
 
         evaluate(
@@ -202,6 +252,7 @@ def main() -> None:
                 "metrics": run_config["metrics"],
             },
             nb_samples=args.nb_samples,
+            project_name=os.environ.get("OPIK_PROJECT_NAME"),
         )
 
         logger.info("Experiment complete: %s", exp_name)

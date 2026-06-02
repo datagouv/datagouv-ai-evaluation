@@ -30,12 +30,12 @@ def setup_tracing() -> None:
     if _INITIALIZED:
         return
 
-    import logfire
-
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:5173/api/v1/private/otel")
     _check_endpoint(endpoint)
 
-    logfire.configure(send_to_logfire=False)
-    logfire.instrument_pydantic_ai()
-
+    # Intentionally NOT calling logfire.instrument_pydantic_ai(): it instruments
+    # every pydantic-ai agent globally (task agents AND every LLM judge), flooding
+    # Opik with hundreds of orphan "agent run" OTLP traces. Agent activity is traced
+    # via the manual @opik.track spans in task.py, which the eval engine links to
+    # experiment items. This call only pre-flights that the Opik instance is up.
     _INITIALIZED = True

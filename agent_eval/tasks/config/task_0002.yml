@@ -29,69 +29,68 @@ evaluation_criteria:
       - criteria: >
           Agent identifies that the answer requires querying
           the data.gouv.fr catalog dataset itself, not a domain dataset.
-        
+
       - criteria: >
           Agent attempts a tabular query with a date filter
           on the catalog dataset (created_at < 2012-06-28).
-        
+
       - criteria: >
           Agent returns the number : 2076.
-        
+
 
     optimal:
       - criteria: >
           Agent identifies the correct date column to filter on
           and explains its choice (created_at : not date_created or published_at).
-        
+
       - criteria: >
           Agent returns the exact count : 2076, with the query logic explained.
-        
+
       - criteria: >
           Agent notes any data quality caveat, e.g. creation date
           in the catalog may not match the original publication date.
-        
 
-tool_chain:
-  - v_introduced: "1.0"
-    minimal:
-      chain: search_datasets > get_dataset_info > list_dataset_resources > query_resource_data
-      required_tools:
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to the data.gouv.fr catalog itself.
-                e.g. "catalogue data.gouv.fr", "liste des jeux de données"
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict: "5d13a8b6634f41070a43dff3"
-        - name: list_dataset_resources
-          args:
-            - name: dataset_id
-              strict: "5d13a8b6634f41070a43dff3"
-        - name: get_resource_info
-          args:
-            - name: resource_id
-              strict: "f868cca6-8da1-4369-a78d-47463f19a9a3"
-        - name: query_resource_data
-          args:
-            - name: resource_id
-              strict: "f868cca6-8da1-4369-a78d-47463f19a9a3"
-            - name: filters
-              criteria: >
-                Date filter on creation column, before 2012-06-28.
-                e.g. created_at < "2012-06-28"
 
-    optimal:
-      chain: search_datasets > get_dataset_info > list_dataset_resources > query_resource_data
-      required_tools:
-        - name: query_resource_data
-          args:
-            - name: filters
-              criteria: >
-                Filter on the correct date column (not modified_at or published_at)
-                with correct ISO date format and count aggregation
+action_chain:
+  minimal:
+    chain: search.datasets > get.dataset.info > get.dataset.resources > get.data
+    required_actions:
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to the data.gouv.fr catalog itself.
+              e.g. "catalogue data.gouv.fr", "liste des jeux de données"
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "5d13a8b6634f41070a43dff3"
+      - name: get.dataset.resources
+        args:
+          - name: dataset_id
+            strict_value: "5d13a8b6634f41070a43dff3"
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            strict_value: "f868cca6-8da1-4369-a78d-47463f19a9a3"
+      - name: get.data
+        args:
+          - name: resource_id
+            strict_value: "f868cca6-8da1-4369-a78d-47463f19a9a3"
+          - name: filters
+            criteria: >
+              Date filter on creation column, before 2012-06-28.
+              e.g. created_at < "2012-06-28"
+
+  optimal:
+    chain: search.datasets > get.dataset.info > get.dataset.resources > get.data
+    required_actions:
+      - name: get.data
+        args:
+          - name: filters
+            criteria: >
+              Filter on the correct date column (not modified_at or published_at)
+              with correct ISO date format and count aggregation
 
 resources:
   - type: dataset

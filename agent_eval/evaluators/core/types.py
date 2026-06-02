@@ -11,41 +11,42 @@ from dataclasses import dataclass, field
 class TaskEvalResult:
     """All per-task metrics, ready for conversion to Opik ScoreResult objects."""
 
-    # ── Tool usage — actual call counts (precision denominators) ─────────────
+    # ── Tool calls — literal agent invocations (efficiency tracking) ─────────
     total_tool_calls: int = 0
-    unique_actual_tool_names: int = 0
-    successful_tool_calls: int = 0
-    schema_compliant_tool_calls: int = 0
 
-    # ── Tool usage — GT requirement sizes (recall denominators) ──────────────
-    required_tool_names_minimal: int = 0       # |set(GT names)|
-    required_tool_names_optimal: int = 0
-    required_tool_calls_minimal: int = 0       # len(GT list)
-    required_tool_calls_optimal: int = 0
+    # ── Action usage — actual counts (precision denominators) ────────────────
+    total_actions_made: int = 0                # len(mapped action instances)
+    unique_action_names: int = 0               # |set(mapped action names)|
+    action_success_rate: float = 0.0           # instances whose source call did not error
+    action_mapped_fraction: float = 0.0        # fraction of calls mapped to >= 1 action
 
-    # ── Tool usage — matched counts (TP numerators) ──────────────────────────
-    matched_tool_names_minimal: int = 0        # |set(GT names) ∩ set(actual names)|
-    matched_tool_names_optimal: int = 0
-    matched_tool_calls_minimal: int = 0        # LLM-judged correct calls
-    matched_tool_calls_optimal: int = 0
+    # ── Action usage — GT requirement sizes (recall denominators) ────────────
+    required_action_types_minimal: int = 0     # |set(GT names)|
+    required_action_types_optimal: int = 0
+    required_actions_minimal: int = 0          # len(GT list)
+    required_actions_optimal: int = 0
 
-    # ── Tool usage — rates (tool_selection level, unique names) ─────────────
-    precision_tool_selection_minimal: float = 0.0
-    precision_tool_selection_optimal: float = 0.0
-    recall_tool_selection_minimal: float = 0.0
-    recall_tool_selection_optimal: float = 0.0
-    f1_tool_selection_minimal: float = 0.0
-    f1_tool_selection_optimal: float = 0.0
+    # ── Action usage — matched counts (TP numerators) ────────────────────────
+    matched_action_types_minimal: int = 0      # |set(GT names) ∩ set(actual names)|
+    matched_action_types_optimal: int = 0
+    matched_actions_minimal: int = 0           # LLM-judged correct actions
+    matched_actions_optimal: int = 0
 
-    # ── Tool usage — rates (tool_call level, params + schema correct) ────────
-    schema_compliance_rate: float = 0.0
-    tool_call_success_rate: float = 0.0
-    precision_tool_call_minimal: float = 0.0
-    precision_tool_call_optimal: float = 0.0
-    recall_tool_call_minimal: float = 0.0
-    recall_tool_call_optimal: float = 0.0
-    f1_tool_call_minimal: float = 0.0
-    f1_tool_call_optimal: float = 0.0
+    # ── Action usage — rates (action-type level, unique names) ──────────────
+    precision_action_type_minimal: float = 0.0
+    precision_action_type_optimal: float = 0.0
+    recall_action_type_minimal: float = 0.0
+    recall_action_type_optimal: float = 0.0
+    f1_action_type_minimal: float = 0.0
+    f1_action_type_optimal: float = 0.0
+
+    # ── Action usage — rates (action-instance level, params correct) ─────────
+    precision_action_minimal: float = 0.0
+    precision_action_optimal: float = 0.0
+    recall_action_minimal: float = 0.0
+    recall_action_optimal: float = 0.0
+    f1_action_minimal: float = 0.0
+    f1_action_optimal: float = 0.0
 
     # ── Trajectory ───────────────────────────────────────────────────────────
     trajectory_adherence_minimal: float = 0.0

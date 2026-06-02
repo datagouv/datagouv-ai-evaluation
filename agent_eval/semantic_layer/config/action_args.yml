@@ -1,0 +1,48 @@
+# Semantic argument name → framework-specific argument name mappings.
+# Each top-level key is a semantic arg name used in action_chain task definitions.
+# Values map each framework to the concrete arg name for a given version range.
+# PEP 440 version specifiers; "" = any version.
+
+query:
+  - mcp:
+      version: "<=0.2.24"
+      name: "query"
+  - api:
+      version: "==1"
+      name: "q"
+  - cli:
+      version: ""
+      name: ""
+
+dataset_id:
+  - mcp:
+      version: "<=0.2.24"
+      name: "dataset_id"
+  - api:
+      version: "==1"
+      name: "id"
+  - cli:
+      version: ""
+      name: "id"
+
+resource_id:
+  - mcp:
+      version: "<=0.2.24"
+      name: "resource_id"
+  - api:
+      version: "==1"
+      name: "rid"
+  - cli:
+      version: ""
+      name: "id"
+
+dataservice_id:
+  - mcp:
+      version: "<=0.2.24"
+      name: "dataservice_id"
+  - api:
+      version: "==1"
+      name: "id"
+  - cli:
+      version: ""
+      name: "id"

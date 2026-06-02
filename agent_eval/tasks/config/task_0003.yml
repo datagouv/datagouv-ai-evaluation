@@ -14,7 +14,7 @@ meta:
 
 prompt: >
   Je débute l'inventaire d'une cathédrale, Cathédrale Saint-Jean de Belley.
-  Où puis-je trouver les fiches des objets qui pourraient être classés monuments historiques ?
+  Où trouver les fiches des objets qui pourraient être classés monuments historiques ?
 
 draft_answer: >
   Chercher, trouver par ex ce jeu
@@ -31,49 +31,49 @@ evaluation_criteria:
       - criteria: >
           Agent returns the dataset "Liste des objets protégés au titre des Monuments historiques".
       - criteria: >
-          Agent does not confuse between the protected objects/furniture dataset and the buildings one. 
+          Agent does not confuse between the protected objects/furniture dataset and the buildings one.
       - criteria: >
           Agent provides a direct link or clear path for the user to access or download the relevant resource.
-        
+
 
     optimal:
       - criteria: >
-          Agent explains how to filter the dataset using columns like "Département" or "Département format numérique", 
-          "Commune forme index", "Nom de l’édifice" to find Cathédrale Saint-Jean de Belley.     
+          Agent explains how to filter the dataset using columns like "Département" or "Département format numérique",
+          "Commune forme index", "Nom de l'édifice" to find Cathédrale Saint-Jean de Belley.
       - criteria: >
           Agent notes that the CSV is not available via the tabular API so it cannot be queried by the agent.
       - criteria: >
           Agent notes that the CSV is over 300 Mo which could slow a bit the RAM to open it fully with a spreadsheet software.
       - criteria: >
           Agent notes that the CSV has been updated recently, like announced in the description (every Friday).
-        
 
-tool_chain:
-  - v_introduced: "1.0"
-    minimal:
-      chain: search_datasets > get_dataset_info
-      required_tools:
-        - name: search_datasets
-          args:
-            - name: query
-              criteria: >
-                Semantically relevant to classified or protected historic objects.
-                e.g. "objets mobiliers monuments historiques", "mobilier classé MH"
-        - name: get_dataset_info
-          args:
-            - name: dataset_id
-              strict_value: "615bcdd729be9185b3b0681a"  # active dataset
 
-    optimal:
-      chain: search_datasets > get_dataset_info > list_dataset_resources > get_resource_info
-      required_tools:
-        - name: list_dataset_resources
-          args:
-            - name: dataset_id
-              strict_value: "615bcdd729be9185b3b0681a"
-        - name: query_resource_data
-          args:
-            - name: resource_id
+action_chain:
+  minimal:
+    chain: search.datasets > get.dataset.info
+    required_actions:
+      - name: search.datasets
+        args:
+          - name: query
+            criteria: >
+              Semantically relevant to classified or protected historic objects.
+              e.g. "objets mobiliers monuments historiques", "mobilier classé MH"
+      - name: get.dataset.info
+        args:
+          - name: dataset_id
+            strict_value: "615bcdd729be9185b3b0681a"  # active dataset
+
+  optimal:
+    chain: search.datasets > get.dataset.info > get.dataset.resources > get.resource.info
+    required_actions:
+      - name: get.dataset.resources
+        args:
+          - name: dataset_id
+            strict_value: "615bcdd729be9185b3b0681a"
+      - name: get.resource.info
+        args:
+          - name: resource_id
+            criteria: Resource ID of the main CSV file in the dataset
 
 
 resources:

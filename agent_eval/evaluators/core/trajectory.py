@@ -1,20 +1,21 @@
 """
 LLM-as-a-judge for trajectory adherence (sequence alignment).
 Evaluated independently for minimal and optimal levels.
-Uses pydantic-ai Agent — model-agnostic. No Opik imports.
+Operates on the mapped semantic action sequence (from action_mapper), not literal
+tool calls. Uses pydantic-ai Agent — model-agnostic. No Opik imports.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Any
 
 from pydantic import BaseModel, field_validator
 from pydantic_ai import Agent
 
+from agent_eval.evaluators.core.action_mapper import ActionInstance
 from agent_eval.evaluators.core.prompts import trajectory_adherence as prompts
-from agent_eval.tasks.loader import ToolChain, ToolChainLevel
+from agent_eval.tasks.loader import ActionChain, ActionChainLevel
 from agent_eval.evaluators.core.judge_model import JudgeModel
 
 logger = logging.getLogger(__name__)
@@ -40,8 +41,8 @@ class TrajectoryOutput:
 
 async def _judge_level(
     model: JudgeModel,
-    level: ToolChainLevel,
-    actual_tool_calls: list[dict[str, Any]],
+    level: ActionChainLevel,
+    instances: list[ActionInstance],
     user_prompt: str,
 ) -> _TrajectoryJudgment:
     agent: Agent[None, _TrajectoryJudgment] = Agent(
@@ -49,11 +50,12 @@ async def _judge_level(
         system_prompt=prompts.SYSTEM_PROMPT,
         output_type=_TrajectoryJudgment,
     )
-    required_tools_dicts = [{"name": t.name} for t in level.required_tools]
+    required_actions_dicts = [{"name": t.name} for t in level.required_actions]
+    actual_actions = [{"name": i.action, "arguments": i.args} for i in instances]
     user_msg = prompts.build_user_message(
         expected_chain=level.chain,
-        required_tools=required_tools_dicts,
-        actual_tool_calls=actual_tool_calls,
+        required_actions=required_actions_dicts,
+        actual_actions=actual_actions,
         user_prompt=user_prompt,
     )
     try:
@@ -66,14 +68,14 @@ async def _judge_level(
 
 async def compute_trajectory_adherence(
     model: JudgeModel,
-    tool_chain: ToolChain,
-    actual_tool_calls: list[dict[str, Any]],
+    action_chain: ActionChain,
+    instances: list[ActionInstance],
     user_prompt: str,
 ) -> TrajectoryOutput:
     """Two concurrent LLM calls: one for minimal chain, one for optimal chain."""
     minimal_result, optimal_result = await asyncio.gather(
-        _judge_level(model, tool_chain.minimal, actual_tool_calls, user_prompt),
-        _judge_level(model, tool_chain.optimal, actual_tool_calls, user_prompt),
+        _judge_level(model, action_chain.minimal, instances, user_prompt),
+        _judge_level(model, action_chain.optimal, instances, user_prompt),
     )
     return TrajectoryOutput(
         score_minimal=minimal_result.score,

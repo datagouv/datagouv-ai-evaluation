@@ -1,38 +1,75 @@
 from __future__ import annotations
 
+import hashlib
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
+
+# Fixed epoch anchor for deterministic UUID v7 item IDs (2024-01-01T00:00:00Z in ms).
+# Opik 2.x requires UUID v7; using a fixed timestamp keeps IDs stable across runs.
+_EPOCH_MS = 1704067200000
+
+
+def _task_id_to_uuid7(task_id: str, version: str = "") -> str:
+    """Deterministic UUID v7 derived from task_id (and optional dataset version).
+
+    Version nibble = 7, variant = 10 (RFC 4122), timestamp fixed at _EPOCH_MS.
+    Random bits come from SHA-256 of `task_id[:version]` — unique and stable per
+    (task_id, version). Bumping `version` yields entirely new ids so a refreshed
+    dataset doesn't collide with orphaned `dataset_item_versions` rows from prior
+    submissions (Opik's API delete does NOT cascade to ClickHouse).
+    """
+    key = f"{task_id}:{version}" if version else task_id
+    h = hashlib.sha256(key.encode()).digest()
+    b = bytearray(16)
+    # Bytes 0-5: 48-bit timestamp
+    ts = _EPOCH_MS
+    b[0] = (ts >> 40) & 0xFF
+    b[1] = (ts >> 32) & 0xFF
+    b[2] = (ts >> 24) & 0xFF
+    b[3] = (ts >> 16) & 0xFF
+    b[4] = (ts >> 8) & 0xFF
+    b[5] = ts & 0xFF
+    # Byte 6: version nibble = 7, upper 4 random bits
+    b[6] = 0x70 | (h[0] & 0x0F)
+    # Byte 7: next 8 random bits
+    b[7] = h[1]
+    # Byte 8: variant bits = 10xxxxxx
+    b[8] = 0x80 | (h[2] & 0x3F)
+    # Bytes 9-15: remaining random bits
+    b[9:16] = h[3:10]
+    return str(uuid.UUID(bytes=bytes(b)))
 
 
 # ── Data model ────────────────────────────────────────────────────────────────
 
 
 @dataclass
-class RequiredToolArg:
+class RequiredActionArg:
     name: str
     strict_value: Any = None
     criteria: str | None = None
 
 
 @dataclass
-class RequiredTool:
+class RequiredAction:
     name: str
-    args: list[RequiredToolArg] = field(default_factory=list)
+    args: list[RequiredActionArg] = field(default_factory=list)
 
 
 @dataclass
-class ToolChainLevel:
+class ActionChainLevel:
     chain: str
-    required_tools: list[RequiredTool] = field(default_factory=list)
+    required_actions: list[RequiredAction] = field(default_factory=list)
 
 
 @dataclass
-class ToolChain:
-    minimal: ToolChainLevel
-    optimal: ToolChainLevel  # always minimal + optimal combined
+class ActionChain:
+    minimal: ActionChainLevel
+    optimal: ActionChainLevel  # always minimal + optimal combined
 
 
 @dataclass
@@ -51,7 +88,7 @@ class ResourceCheck:
 class Resource:
     type: str
     id: str
-    dataset_id: Optional[str]
+    dataset_id: str | None
     checks: list[ResourceCheck] = field(default_factory=list)
 
 
@@ -72,7 +109,7 @@ class Task:
     meta: TaskMeta
     prompt: str
     evaluation_criteria: EvaluationCriteria
-    tool_chain: ToolChain
+    action_chain: ActionChain
     resources: list[Resource] = field(default_factory=list)
 
 
@@ -94,49 +131,49 @@ def _resolve_latest(entries: list[dict]) -> dict:
 # ── Parsers ───────────────────────────────────────────────────────────────────
 
 
-def _parse_required_tool_arg(raw: dict) -> RequiredToolArg:
-    return RequiredToolArg(
+def _parse_required_action_arg(raw: dict) -> RequiredActionArg:
+    return RequiredActionArg(
         name=raw.get("name") or "",
         strict_value=raw.get("strict_value"),
         criteria=raw.get("criteria"),
     )
 
 
-def _parse_required_tool(raw: dict) -> RequiredTool:
-    args = [_parse_required_tool_arg(a) for a in (raw.get("args") or [])]
-    return RequiredTool(name=raw["name"], args=args)
+def _parse_required_action(raw: dict) -> RequiredAction:
+    args = [_parse_required_action_arg(a) for a in (raw.get("args") or [])]
+    return RequiredAction(name=raw["name"], args=args)
 
 
-def _parse_tool_chain_level(
-    raw: dict | None, extra_tools: list[RequiredTool] | None = None
-) -> ToolChainLevel:
+def _parse_action_chain_level(
+    raw: dict | None, extra_actions: list[RequiredAction] | None = None
+) -> ActionChainLevel:
     if raw is None:
-        return ToolChainLevel(chain="", required_tools=list(extra_tools or []))
-    tools = [_parse_required_tool(t) for t in (raw.get("required_tools") or [])]
-    if extra_tools:
-        tools = list(extra_tools) + tools
-    return ToolChainLevel(
+        return ActionChainLevel(chain="", required_actions=list(extra_actions or []))
+    actions = [_parse_required_action(t) for t in (raw.get("required_actions") or [])]
+    if extra_actions:
+        actions = list(extra_actions) + actions
+    return ActionChainLevel(
         chain=raw.get("chain") or "",
-        required_tools=tools,
+        required_actions=actions,
     )
 
 
-def _build_tool_chain(entries: list[dict]) -> ToolChain:
-    entry = _resolve_latest(entries)
-    minimal_level = _parse_tool_chain_level(entry.get("minimal"))
-    raw_optimal = entry.get("optimal")
-    if raw_optimal and (raw_optimal.get("required_tools") or raw_optimal.get("chain")):
-        # optimal = minimal tools + optimal additional tools
-        optimal_level = _parse_tool_chain_level(
-            raw_optimal, extra_tools=minimal_level.required_tools
+def _build_action_chain(raw: dict) -> ActionChain:
+    """Build ActionChain from a plain action_chain dict (no v_introduced wrapper)."""
+    minimal_level = _parse_action_chain_level(raw.get("minimal"))
+    raw_optimal = raw.get("optimal")
+    if raw_optimal and (raw_optimal.get("required_actions") or raw_optimal.get("chain")):
+        # optimal = minimal actions + optimal additional actions
+        optimal_level = _parse_action_chain_level(
+            raw_optimal, extra_actions=minimal_level.required_actions
         )
     else:
         # no optimal block → optimal equals minimal
-        optimal_level = ToolChainLevel(
+        optimal_level = ActionChainLevel(
             chain=minimal_level.chain,
-            required_tools=list(minimal_level.required_tools),
+            required_actions=list(minimal_level.required_actions),
         )
-    return ToolChain(minimal=minimal_level, optimal=optimal_level)
+    return ActionChain(minimal=minimal_level, optimal=optimal_level)
 
 
 def _build_evaluation_criteria(entries: list[dict]) -> EvaluationCriteria:
@@ -191,7 +228,7 @@ def load_task(path: Path) -> Task:
         meta=_parse_task_meta(raw.get("meta") or {}),
         prompt=str(raw.get("prompt") or "").strip(),
         evaluation_criteria=_build_evaluation_criteria(ec_entries),
-        tool_chain=_build_tool_chain(raw.get("tool_chain") or []),
+        action_chain=_build_action_chain(raw.get("action_chain") or {}),
         resources=[_parse_resource(r) for r in (raw.get("resources") or [])],
     )
 
@@ -210,29 +247,35 @@ def load_all_tasks(tasks_dir: Path, status_filter: str = "active") -> list[Task]
     return tasks
 
 
-def task_to_opik_item(task: Task) -> dict:
-    """Convert a Task into an Opik DatasetItem-compatible dict."""
+def task_to_opik_item(task: Task, version: str = "") -> dict:
+    """Convert a Task into an Opik DatasetItem-compatible dict.
 
-    def tool_chain_level_to_dict(level: ToolChainLevel) -> dict:
+    `version` is folded into the item id so bumping it yields fresh ids (used to
+    cleanly re-seed the dataset when tasks change; see `DATASET_VERSION` in
+    run_experiments.py).
+    """
+
+    def action_chain_level_to_dict(level: ActionChainLevel) -> dict:
         return {
             "chain": level.chain,
-            "required_tools": [
+            "required_actions": [
                 {
-                    "name": t.name,
+                    "name": a.name,
                     "args": [
                         {
-                            "name": a.name,
-                            "strict_value": a.strict_value,
-                            "criteria": a.criteria,
+                            "name": arg.name,
+                            "strict_value": arg.strict_value,
+                            "criteria": arg.criteria,
                         }
-                        for a in t.args
+                        for arg in a.args
                     ],
                 }
-                for t in level.required_tools
+                for a in level.required_actions
             ],
         }
 
     return {
+        "id": _task_id_to_uuid7(task.task_id, version),
         "input": {
             "prompt": task.prompt,
             "task_id": task.task_id,
@@ -242,9 +285,9 @@ def task_to_opik_item(task: Task) -> dict:
                 "minimal": task.evaluation_criteria.minimal,
                 "optimal": task.evaluation_criteria.optimal,
             },
-            "tool_chain": {
-                "minimal": tool_chain_level_to_dict(task.tool_chain.minimal),
-                "optimal": tool_chain_level_to_dict(task.tool_chain.optimal),
+            "action_chain": {
+                "minimal": action_chain_level_to_dict(task.action_chain.minimal),
+                "optimal": action_chain_level_to_dict(task.action_chain.optimal),
             },
         },
         "metadata": {

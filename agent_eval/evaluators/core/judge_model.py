@@ -2,13 +2,12 @@ import logging
 import yaml
 from pathlib import Path
 
-from dotenv import dotenv_values
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from agent_eval.utils import CompatibleOpenAIChatModel
+from agent_eval._env import ENV_VALUES
 
 logger = logging.getLogger(__name__)
-_config = dotenv_values(".env")
 
 
 class JudgeModel(CompatibleOpenAIChatModel):
@@ -19,9 +18,9 @@ class JudgeModel(CompatibleOpenAIChatModel):
 
         model_name = raw["name"]
         provider_base_url = raw["provider_base_url"]
-        provider_token = _config.get(raw["provider_token"])
+        provider_token = ENV_VALUES.get(raw["provider_token"])
         if not provider_token:
-            raise TypeError(
+            raise ValueError(
                 f"Please set the API token in environment variable {raw['provider_token']} "
                 f"for provider: {raw['provider']}"
             )

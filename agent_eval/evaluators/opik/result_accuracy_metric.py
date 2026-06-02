@@ -34,7 +34,10 @@ def _criteria_reason(results: list[CriterionResult]) -> str:
 
 class ResultAccuracyMetric(base_metric.BaseMetric):
     def __init__(self, judge_model_path: Path):
-        super().__init__(name="result_accuracy")
+        # track=False: avoid wrapping score() in @opik.track. The per-metric span it
+        # creates makes the dataset-compare view duplicate each item once per scorer
+        # span ("Avg of N trials"). Scores still attach to the trace as feedback scores.
+        super().__init__(name="result_accuracy", track=False)
         self._judge_model = JudgeModel(judge_model_path)
 
     def score(
@@ -57,12 +60,12 @@ class ResultAccuracyMetric(base_metric.BaseMetric):
             minimal=raw_criteria.get("minimal") or [],
             optimal=raw_criteria.get("optimal") or [],
         )
-        raw_chain = exp.get("tool_chain") or {}
-        required_tools_minimal: list[dict] = (raw_chain.get("minimal") or {}).get(
-            "required_tools"
+        raw_chain = exp.get("action_chain") or {}
+        required_actions_minimal: list[dict] = (raw_chain.get("minimal") or {}).get(
+            "required_actions"
         ) or []
-        required_tools_optimal: list[dict] = (raw_chain.get("optimal") or {}).get(
-            "required_tools"
+        required_actions_optimal: list[dict] = (raw_chain.get("optimal") or {}).get(
+            "required_actions"
         ) or []
 
         failure_modes_active = bool(load_failure_modes())
@@ -89,8 +92,8 @@ class ResultAccuracyMetric(base_metric.BaseMetric):
                     agent_answer=agent_answer,
                     failed_criteria=failed,
                     actual_tool_calls=actual_tool_calls,
-                    required_tools_minimal=required_tools_minimal,
-                    required_tools_optimal=required_tools_optimal,
+                    required_actions_minimal=required_actions_minimal,
+                    required_actions_optimal=required_actions_optimal,
                 )
             return result, fm_output
 
