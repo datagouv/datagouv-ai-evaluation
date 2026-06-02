@@ -2,6 +2,16 @@
 
 An evaluation framework for AI agent's data.gouv.fr toolsets — measuring response quality, cost efficiency, and viability across different models and capability configurations.
 
+## At a glance
+
+A configurable cross-product of **evaluation type × model × MCP version × capabilities × system prompt** runs against a curated set of real data.gouv.fr questions. Each agent run is scored with LLM-as-a-judge and deterministic metrics, aggregated at experiment level, and stored in self-hosted [Opik](https://www.comet.com/docs/opik/) so you can compare configurations side by side.
+
+**Quick start:** start Opik (`./opik.sh`), `uv sync`, copy `.env.example` to `.env`, then `uv run python -m agent_eval.experiment.run_experiments`. Full walkthrough in [§3 Setup](#setup--running-evaluations).
+
+**Navigate this README:** [1. Purpose & Goals](#1-purpose--goals) · [2. Core Concepts](#2-core-concepts) · [3. Technical Documentation](#3-technical-documentation) · [4. Limitations](#4-limitations)
+
+For development decisions, dead ends, and gotchas accumulated along the way, see [`doc/implementation_notes.md`](doc/implementation_notes.md).
+
 ---
 
 ## 1. Purpose & Goals
