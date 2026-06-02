@@ -8,41 +8,33 @@ task_name: Personnes habilitées au diagnostic structurel des immeubles (L 126-6
 meta:
   status: active
   source: forum
-  turn: single
-  minimal_tool_invocation_type: multi_tool
-  optimal_tool_invocation_type: multi_tool
 
 prompt: >
   Notre collectivité envisage la mise en place de périmètres imposant la réalisation
   du diagnostic structurel des immeubles d'habitation (L 126-6-1 du CCH).
   Où trouver la liste des personnes habilitées ?
 
-draft_answer: >
-  Dataset 10d654ce-d0ea-4a57-a187-80b127b2b2b9, lire description + profiling + tentative
-  filtre colonne. En réalité il faut connaître le numéro de certificat pour identifier
-  une personne précise (non trouvé rapidement sans cela).
 
 evaluation_criteria:
-  - v_introduced: "1.0"
-    minimal:
-      - criteria: >
-          Agent finds the dataset "Annuaire des diagnostiqueurs immobiliers".
+  minimal:
+    - criteria: >
+        Agent finds the dataset "Annuaire des diagnostiqueurs immobiliers".
 
-      - criteria: >
-          Agent reads the dataset description and conveys the nature of the data
-          (list of certificate holders).
+    - criteria: >
+        Agent reads the dataset description and conveys the nature of the data
+        (list of certificate holders).
 
-      - criteria: >
-          Agent provides a direct download link or tabular query path
-          so the collectivité can access the full list.
+    - criteria: >
+        Agent provides a direct download link or tabular query path
+        so the collectivité can access the full list.
 
 
-    optimal:
-      - criteria: >
-          Agent explains that filtering the list by commune or name is possible.
-      - criteria: >
-          Agent explains that it requires filtering by a known certificate number
-          as entry point first.
+  optimal:
+    - criteria: >
+        Agent explains that filtering the list by commune or name is possible.
+    - criteria: >
+        Agent explains that it requires filtering by a known certificate number
+        as entry point first.
 
 
 action_chain:

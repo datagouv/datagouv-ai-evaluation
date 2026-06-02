@@ -8,34 +8,26 @@ task_name: Permis de construire attribués sur Tournefeuille
 meta:
   status: active
   source: forum
-  turn: single
-  minimal_tool_invocation_type: multi_tool
-  optimal_tool_invocation_type: multi_tool
 
 prompt: >
   Je voudrais consulter la liste des permis de construire attribués sur Tournefeuille
   à la dernière mise à jour.
 
-draft_answer: >
-  Trouver dataset 689c42fa, lire description, ressources : 65a9e264 (logements, tabular ✓),
-  8f23d65f (non-résidentiel, tabular ✓ — correction vs draft initial). Profiling,
-  filtrer COMM=Tournefeuille.
 
 evaluation_criteria:
-  - v_introduced: "1.0"
-    minimal:
-      - criteria: >
-          Agent finds the dataset "Liste des permis de construire et autres autorisations d'urbanisme".
-      - criteria: >
-          Agent explains the distinction between the residential and non-residential
-          resources and what each covers.
-      - criteria: >
-          Agent identifies and reports the last update date of the data.
-    optimal:
-      - criteria: >
-          Agent queries both the residential to provide at least the beginning of a list.
-      - criteria: >
-          Agent explains the non-residential needs to be downloaded, and explains how to filter it.
+  minimal:
+    - criteria: >
+        Agent finds the dataset "Liste des permis de construire et autres autorisations d'urbanisme".
+    - criteria: >
+        Agent explains the distinction between the residential and non-residential
+        resources and what each covers.
+    - criteria: >
+        Agent identifies and reports the last update date of the data.
+  optimal:
+    - criteria: >
+        Agent queries both the residential to provide at least the beginning of a list.
+    - criteria: >
+        Agent explains the non-residential needs to be downloaded, and explains how to filter it.
 
 action_chain:
   minimal:

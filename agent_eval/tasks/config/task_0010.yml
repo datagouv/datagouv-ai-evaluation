@@ -8,77 +8,66 @@ task_name: APIs pour outils pédagogiques - patrimoine culturel, démographie, �
 meta:
   status: active
   source: synthetic
-  turn: single
-  minimal_tool_invocation_type: multi_tool
-  optimal_tool_invocation_type: multi_tool
 
 prompt: >
   Je développe des outils pédagogiques et cherche des APIs pour automatiser
   l'intégration de patrimoine culturel français, données démographiques des communes,
   statistiques éducatives. Endpoints avec authentification simple ?
 
-draft_answer: >
-  Chercher APIs + datasets tabular. Réponses : API Éducation Nationale (672cf9be, ouverte),
-  Explore API v2 éducation (6690aa63, ouverte), API Démarches Ministère Culture (672cfc6b, ouverte),
-  scanR (672cfc39, ouverte). Avec compte : API La bonne alternance (672cf64f),
-  API Diffusion Données Locales INSEE (672cf9c3).
-  Note : Basilic (lieux culturels) et Explore API v2 culture non trouvés dans le catalogue
-  au moment de la rédaction.
 
 evaluation_criteria:
-  - v_introduced: "1.0"
-    minimal:
-      - criteria: >
-          Agent returns at least three APIs from the data.gouv.fr catalog covering
-          at least two of the three requested domains: éducation, patrimoine/culture,
-          démographie/données locales.
+  minimal:
+    - criteria: >
+        Agent returns at least three APIs from the data.gouv.fr catalog covering
+        at least two of the three requested domains: éducation, patrimoine/culture,
+        démographie/données locales.
 
-      - criteria: >
-          Agent correctly classifies open-access APIs (no registration needed):
-          "API données ouvertes de l'Éducation Nationale", "Explore API v2
-          https://data.education.gouv.fr", "API Démarches du Ministère de la culture",
-          and "scanR" are all open; if mentioned, it must not describe them as requiring an account.
+    - criteria: >
+        Agent correctly classifies open-access APIs (no registration needed):
+        "API données ouvertes de l'Éducation Nationale", "Explore API v2
+        https://data.education.gouv.fr", "API Démarches du Ministère de la culture",
+        and "scanR" are all open; if mentioned, it must not describe them as requiring an account.
 
-      - criteria: >
-          Agent correctly flags that "API Diffusion Données Locales" (INSEE)
-          and/or "API La bonne alternance" require a prior registration or account,
-          and does not present them as freely accessible without credentials.
+    - criteria: >
+        Agent correctly flags that "API Diffusion Données Locales" (INSEE)
+        and/or "API La bonne alternance" require a prior registration or account,
+        and does not present them as freely accessible without credentials.
 
-    optimal:
-      - criteria: >
-          For the education domain, agent names "API données ouvertes de l'Éducation
-          Nationale" (base URL https://data.education.gouv.fr/api/explore/v2.0,
-          published by Ministères de l'Éducation nationale) and/or "Explore API v2"
-          (base URL https://data.education.gouv.fr/api/explore/v2.1/) and mentions
-          the types of data accessible: annuaires scolaires, élèves, examens, lycées,
-          collèges, diplômes.
+  optimal:
+    - criteria: >
+        For the education domain, agent names "API données ouvertes de l'Éducation
+        Nationale" (base URL https://data.education.gouv.fr/api/explore/v2.0,
+        published by Ministères de l'Éducation nationale) and/or "Explore API v2"
+        (base URL https://data.education.gouv.fr/api/explore/v2.1/) and mentions
+        the types of data accessible: annuaires scolaires, élèves, examens, lycées,
+        collèges, diplômes.
 
-      - criteria: >
-          For cultural or research heritage, agent names "API Démarches du Ministère
-          de la culture" (démarches, aides et subventions culturelles, published by
-          Ministère de la Culture) or "scanR, moteur de la recherche et de l'innovation"
-          (publications, brevets, financements de recherche — Elasticsearch indices
-          scanr-organizations, scanr-publications, scanr-patents — published by
-          Ministère de l'Enseignement supérieur).
+    - criteria: >
+        For cultural or research heritage, agent names "API Démarches du Ministère
+        de la culture" (démarches, aides et subventions culturelles, published by
+        Ministère de la Culture) or "scanR, moteur de la recherche et de l'innovation"
+        (publications, brevets, financements de recherche — Elasticsearch indices
+        scanr-organizations, scanr-publications, scanr-patents — published by
+        Ministère de l'Enseignement supérieur).
 
-      - criteria: >
-          For demographics, agent names "API Diffusion Données Locales" from INSEE,
-          describes it as providing commune-level statistics (recensement de la
-          population, chiffres détaillés), notes it requires an INSEE account, and
-          references its OpenAPI spec at
-          https://api.insee.fr/catalogue/api-docs/carbon.super/DonneesLocales/V0.1.
+    - criteria: >
+        For demographics, agent names "API Diffusion Données Locales" from INSEE,
+        describes it as providing commune-level statistics (recensement de la
+        population, chiffres détaillés), notes it requires an INSEE account, and
+        references its OpenAPI spec at
+        https://api.insee.fr/catalogue/api-docs/carbon.super/DonneesLocales/V0.1.
 
-      - criteria: >
-          Agent provides at least one OpenAPI/Swagger spec URL from the catalog,
-          e.g. https://data.education.gouv.fr/api/explore/v2.1/swagger.json or
-          https://api.apprentissage.beta.gouv.fr/api/swagger.json, allowing the
-          user to discover endpoints directly.
+    - criteria: >
+        Agent provides at least one OpenAPI/Swagger spec URL from the catalog,
+        e.g. https://data.education.gouv.fr/api/explore/v2.1/swagger.json or
+        https://api.apprentissage.beta.gouv.fr/api/swagger.json, allowing the
+        user to discover endpoints directly.
 
-      - criteria: >
-          Agent categorises its results by domain (éducation, culture/patrimoine,
-          démographie) for readability, and for "API La bonne alternance" clarifies
-          its focus (offres d'emploi et formations en alternance, apprentissage) so
-          the user can judge relevance to their pedagogical tool.
+    - criteria: >
+        Agent categorises its results by domain (éducation, culture/patrimoine,
+        démographie) for readability, and for "API La bonne alternance" clarifies
+        its focus (offres d'emploi et formations en alternance, apprentissage) so
+        the user can judge relevance to their pedagogical tool.
 
 
 action_chain:

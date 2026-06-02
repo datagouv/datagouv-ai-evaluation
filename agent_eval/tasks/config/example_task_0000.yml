@@ -4,26 +4,19 @@ task_name: # Human-friendly name
 meta:
   status: active | deprecated | draft
   source: forum | support | interview | synthetic
-  turn: single | multi # For now, all single
-  minimal_tool_invocation_type: single_tool | dual_tool_parallel | dual_tool_serial | multi_tool
-  optimal_tool_invocation_type: single_tool | dual_tool_parallel | dual_tool_serial | multi_tool
 
 prompt: # User prompt
 
-draft_answer: # Your raw input answer, to compare with written criteria
-
 evaluation_criteria:
-  # Criteria are truth about the response (not the tool usage).
-  # Agnostic of MCP minor versions — only deprecate on major breaking changes.
-  - v_introduced: "1.0"
-    minimal:
-      # Minimum for the response to be true and helpful.
-      # e.g. prompt "where can I find X?" -> answer "X can be found this way [...]"
-      - criteria: # str
-    optimal:
-      # What a good agent would do to fully answer.
-      # e.g. "X can be found this way [...] or alternatively [...]. Here is X: [...]"
-      - criteria: # str
+  # Criteria are truth about the response (not the tool usage). MCP-agnostic.
+  minimal:
+    # Minimum for the response to be true and helpful.
+    # e.g. prompt "where can I find X?" -> answer "X can be found this way [...]"
+    - criteria: # str
+  optimal:
+    # What a good agent would do to fully answer.
+    # e.g. "X can be found this way [...] or alternatively [...]. Here is X: [...]"
+    - criteria: # str
 
 action_chain:
   # Framework-agnostic semantic actions. Resolved to concrete tool/endpoint names

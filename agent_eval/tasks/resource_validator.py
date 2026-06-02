@@ -106,12 +106,9 @@ async def _fetch_metadata(
 # ── Snapshot helpers ──────────────────────────────────────────────────────────
 
 
-def _snapshot_path(
-    snapshot_dir: Path, task_id: str, resource_id: str, v_introduced: str
-) -> Path:
-    safe_v = v_introduced.replace(".", "_")
+def _snapshot_path(snapshot_dir: Path, task_id: str, resource_id: str) -> Path:
     safe_rid = resource_id.replace("-", "_")
-    return snapshot_dir / f"{task_id}_{safe_rid}_{safe_v}.json"
+    return snapshot_dir / f"{task_id}_{safe_rid}.json"
 
 
 def _read_snapshot(path: Path) -> dict | None:
@@ -135,7 +132,6 @@ async def same_title_description(
     resource_id: str,
     snapshot_dir: Path,
     task_id: str,
-    v_introduced: str,
     dataset_id: str | None = None,
 ) -> ValidationResult:
     """
@@ -162,7 +158,7 @@ async def same_title_description(
         "description": meta.get("description") or "",
     }
 
-    snap_path = _snapshot_path(snapshot_dir, task_id, resource_id, v_introduced)
+    snap_path = _snapshot_path(snapshot_dir, task_id, resource_id)
     stored = _read_snapshot(snap_path)
 
     if stored is None:
@@ -433,7 +429,6 @@ async def validate_task(task: Task, snapshot_dir: Path) -> list[ValidationResult
                         resource.id,
                         snapshot_dir,
                         task.task_id,
-                        task.v_introduced,
                         dataset_id=resource.dataset_id,
                     )
                 )

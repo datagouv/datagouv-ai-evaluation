@@ -96,36 +96,17 @@ class Resource:
 class TaskMeta:
     status: str
     source: str
-    turn: str
-    minimal_tool_invocation_type: str
-    optimal_tool_invocation_type: str
 
 
 @dataclass
 class Task:
     task_id: str
     task_name: str
-    v_introduced: str
     meta: TaskMeta
     prompt: str
     evaluation_criteria: EvaluationCriteria
     action_chain: ActionChain
     resources: list[Resource] = field(default_factory=list)
-
-
-# ── Version resolution ────────────────────────────────────────────────────────
-
-
-def _version_key(v: str) -> tuple[int, ...]:
-    try:
-        return tuple(int(x) for x in str(v).split("."))
-    except ValueError:
-        return (0,)
-
-
-def _resolve_latest(entries: list[dict]) -> dict:
-    """Return the entry with the highest v_introduced."""
-    return max(entries, key=lambda e: _version_key(e.get("v_introduced", "0")))
 
 
 # ── Parsers ───────────────────────────────────────────────────────────────────
@@ -159,7 +140,7 @@ def _parse_action_chain_level(
 
 
 def _build_action_chain(raw: dict) -> ActionChain:
-    """Build ActionChain from a plain action_chain dict (no v_introduced wrapper)."""
+    """Build ActionChain from a plain action_chain dict."""
     minimal_level = _parse_action_chain_level(raw.get("minimal"))
     raw_optimal = raw.get("optimal")
     if raw_optimal and (raw_optimal.get("required_actions") or raw_optimal.get("chain")):
@@ -176,11 +157,11 @@ def _build_action_chain(raw: dict) -> ActionChain:
     return ActionChain(minimal=minimal_level, optimal=optimal_level)
 
 
-def _build_evaluation_criteria(entries: list[dict]) -> EvaluationCriteria:
-    entry = _resolve_latest(entries)
-    minimal = [c["criteria"] for c in (entry.get("minimal") or []) if c.get("criteria")]
+def _build_evaluation_criteria(raw: dict | None) -> EvaluationCriteria:
+    raw = raw or {}
+    minimal = [c["criteria"] for c in (raw.get("minimal") or []) if c.get("criteria")]
     optimal_extra = [
-        c["criteria"] for c in (entry.get("optimal") or []) if c.get("criteria")
+        c["criteria"] for c in (raw.get("optimal") or []) if c.get("criteria")
     ]
     if optimal_extra:
         optimal = minimal + optimal_extra
@@ -203,9 +184,6 @@ def _parse_task_meta(raw: dict) -> TaskMeta:
     return TaskMeta(
         status=raw.get("status", "draft"),
         source=raw.get("source", ""),
-        turn=raw.get("turn", "single"),
-        minimal_tool_invocation_type=raw.get("minimal_tool_invocation_type", ""),
-        optimal_tool_invocation_type=raw.get("optimal_tool_invocation_type", ""),
     )
 
 
@@ -217,17 +195,12 @@ def load_task(path: Path) -> Task:
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
-    ec_entries = raw.get("evaluation_criteria") or []
-    best_ec = _resolve_latest(ec_entries) if ec_entries else {}
-    v_introduced = str(best_ec.get("v_introduced", "1.0"))
-
     return Task(
         task_id=str(raw["task_id"]),
         task_name=str(raw.get("task_name", "")),
-        v_introduced=v_introduced,
         meta=_parse_task_meta(raw.get("meta") or {}),
         prompt=str(raw.get("prompt") or "").strip(),
-        evaluation_criteria=_build_evaluation_criteria(ec_entries),
+        evaluation_criteria=_build_evaluation_criteria(raw.get("evaluation_criteria")),
         action_chain=_build_action_chain(raw.get("action_chain") or {}),
         resources=[_parse_resource(r) for r in (raw.get("resources") or [])],
     )
@@ -293,8 +266,5 @@ def task_to_opik_item(task: Task, version: str = "") -> dict:
         "metadata": {
             "task_name": task.task_name,
             "source": task.meta.source,
-            "turn": task.meta.turn,
-            "minimal_tool_invocation_type": task.meta.minimal_tool_invocation_type,
-            "optimal_tool_invocation_type": task.meta.optimal_tool_invocation_type,
         },
     }

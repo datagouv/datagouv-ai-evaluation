@@ -8,45 +8,37 @@ task_name: API pour organismes certificateurs - récupérer les RNCP passés et 
 meta:
   status: active
   source: forum
-  turn: single
-  minimal_tool_invocation_type: dual_tool_parallel
-  optimal_tool_invocation_type: multi_tool
 
 prompt: >
   Existe-t-il une API qui permettrait à un organisme certificateur de récupérer
   tous ses RNCP passés et en cours ?
 
-draft_answer: >
-  Trouver dataservice 68629060 (API Certif Info — ⚠ restreint aux organismes publics,
-  pas privé). Chercher alternative dataset 5eebbc06 (RNCP) : aucun fichier tabular,
-  mais URL stable pour téléchargement direct.
 
 evaluation_criteria:
-  - v_introduced: "1.0"
-    minimal:
-      - criteria: >
-          Agent surfaces "API Certif Info" as the primary relevant API.
-      - criteria: >
-          Agent mentions that it requires a connexion token to connect to the API.
+  minimal:
+    - criteria: >
+        Agent surfaces "API Certif Info" as the primary relevant API.
+    - criteria: >
+        Agent mentions that it requires a connexion token to connect to the API.
 
-      # For now we don't return the spec about restriction so it can't know that
-      #- criteria: >
-      #    Agent notes that "API Certif Info" is restricted to public organisations
-      #    and is not available to private certification bodies.
+    # For now we don't return the spec about restriction so it can't know that
+    #- criteria: >
+    #    Agent notes that "API Certif Info" is restricted to public organisations
+    #    and is not available to private certification bodies.
 
-      - criteria: >
-          Agent mentions the dataset "Répertoire national des certifications professionnelles et répertoire spécifique"
-          (RNCP) as an alternative source.
+    - criteria: >
+        Agent mentions the dataset "Répertoire national des certifications professionnelles et répertoire spécifique"
+        (RNCP) as an alternative source.
 
-    optimal:
+  optimal:
 
-      - criteria: >
-          Agent notes that "Répertoire national des certifications professionnelles et répertoire spécifique"
-          is not accessible via the tabular API (no MCP query possible) and direct download through the stable URL is the practical workaround.
+    - criteria: >
+        Agent notes that "Répertoire national des certifications professionnelles et répertoire spécifique"
+        is not accessible via the tabular API (no MCP query possible) and direct download through the stable URL is the practical workaround.
 
-      - criteria: >
-          Agent provides the "Répertoire national des certifications professionnelles et répertoire spécifique"
-          download URL or clear path to the CSV .zip and the documentation.
+    - criteria: >
+        Agent provides the "Répertoire national des certifications professionnelles et répertoire spécifique"
+        download URL or clear path to the CSV .zip and the documentation.
 
 
 action_chain:
