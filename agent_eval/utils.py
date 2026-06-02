@@ -18,12 +18,15 @@ _RATE_LIMIT_BACKOFF = [65, 70, 80, 90, 120]
 
 
 class CompatibleOpenAIChatModel(OpenAIChatModel):
-    """OpenAIChatModel with two fixes for OpenAI-compatible providers:
+    """OpenAIChatModel with three fixes for OpenAI-compatible providers:
 
     1. Retries 429 rate-limit errors at the individual request level so the
        agent resumes from the failing turn rather than restarting from scratch.
     2. Patches tool_calls with type=null (e.g. Mistral) to type="function"
        before pydantic-ai re-validates the response.
+    3. Flattens message content returned as a list of OpenAI "content parts"
+       (e.g. Mistral: [{"type": "text", "text": "..."}, ...]) into a plain
+       string, since pydantic-ai's ChatCompletion expects content: str.
 
     Accumulated backoff wait time is tracked in `rate_limit_wait_ms` so callers
     can compute net latency (actual inference time, excluding quota delays).
@@ -54,11 +57,20 @@ class CompatibleOpenAIChatModel(OpenAIChatModel):
                 raise
 
     def _process_response(self, response):
-        # Some OpenAI-compatible providers (e.g. Mistral) omit the type field on
-        # tool_calls, returning null instead of "function". Patch before pydantic-ai
-        # re-validates the response.
+        # Patch quirks from OpenAI-compatible providers before pydantic-ai re-validates.
         if not isinstance(response, str):
             for choice in response.choices:
+                # Mistral may return content as a list of content parts
+                # ([{"type": "text", "text": "..."}, ...]) instead of a plain string.
+                content = getattr(choice.message, "content", None)
+                if isinstance(content, list):
+                    choice.message.content = "".join(
+                        (part.get("text", "") if isinstance(part, dict)
+                         else getattr(part, "text", "") or "")
+                        for part in content
+                    )
+                # Mistral also sometimes omits the type field on tool_calls,
+                # returning null instead of "function".
                 for tc in getattr(choice.message, "tool_calls", None) or []:
                     if getattr(tc, "type", None) is None:
                         tc.type = "function"
