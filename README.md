@@ -401,6 +401,14 @@ Edit `benchmark/config/mcp_versions.yml`. If the new version renames tools, add 
 
 Edit `benchmark/config/evaluation_types.yml`. Define which capabilities, system prompts, and metrics apply.
 
+### Contributing rules
+
+We welcome contributions! To keep the project stable and reviews manageable, please observe these rules before submitting:
+
+- **Human review and accountability:** **Issues and pull requests** must not be raw, unreviewed AI output. You must have read, fully understood, and (for code) tested what you submit. **By opening an issue or a pull request, you certify you could explain and defend it in review without relying on an AI assistant.**
+- **Keep it small:** We strictly follow a **1 feature = 1 PR** workflow.
+- **Conventional commits:** Use the [Conventional Commits](https://www.conventionalcommits.org/) format for **git commit messages** and **PR titles** (e.g. `feat: add dataset search`, `fix: handle empty API response`). See the specification for allowed types, scopes, and breaking-change markers.
+
 ---
 
 ## 4. Limitations
@@ -424,3 +432,7 @@ This framework is an early-stage MVP. The following limitations should be unders
 **Single-turn only.** All tasks are single-turn: one user prompt, one agent response. Multi-turn conversations — where users refine their questions, ask for clarifications, or iterate on partial results — are not evaluated. Real user interactions frequently involve multiple turns.
 
 **No cross-dataset or temporal evaluation.** Tasks are fixed to specific datasets and resources as they existed when the tasks were authored. The catalog evolves; a task that was well-defined when authored may become ambiguous or unanswerable if the referenced resource is updated, deprecated, or replaced.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
