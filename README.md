@@ -457,3 +457,26 @@ This framework is an early-stage MVP. The following limitations should be unders
 **Single-turn only.** All tasks are single-turn: one user prompt, one agent response. Multi-turn conversations — where users refine their questions, ask for clarifications, or iterate on partial results — are not evaluated. Real user interactions frequently involve multiple turns.
 
 **No cross-dataset or temporal evaluation.** Tasks are fixed to specific datasets and resources as they existed when the tasks were authored. The catalog evolves; a task that was well-defined when authored may become ambiguous or unanswerable if the referenced resource is updated, deprecated, or replaced.
+
+### 🏷️ Releases and versioning
+
+The release process uses the [`tag_version.sh`](tag_version.sh) script to create git tags, GitHub releases and update [CHANGELOG.md](CHANGELOG.md) automatically. Package version numbers are automatically derived from git tags using [setuptools_scm](https://github.com/pypa/setuptools_scm), so no manual version updates are needed in `pyproject.toml`.
+
+**Prerequisites**: [GitHub CLI](https://cli.github.com/) must be installed and authenticated, and you must be on the main branch with a clean working directory.
+
+```shell
+# Create a new release
+./tag_version.sh <version>
+
+# Example
+./tag_version.sh 2.5.0
+
+# Dry run to see what would happen
+./tag_version.sh 2.5.0 --dry-run
+```
+
+The script automatically:
+- Extracts commits since the last tag and formats them for CHANGELOG.md
+- Identifies breaking changes (commits with `!:` in the subject)
+- Creates a git tag and pushes it to the remote repository
+- Creates a GitHub release with the changelog content
