@@ -7,14 +7,11 @@ Response size is capped at _MAX_RESPONSE_CHARS to minimize token consumption.
 
 To use the 'code' capability instead for fetching large data files, see code.py.
 """
-from __future__ import annotations
-
-from pydantic_ai import RunContext
 
 _BLOCKED_URL_PREFIXES = (
-    "https://www.data.gouv.fr/api/",          # REST API paths (bulk data)
-    "https://tabular-api.data.gouv.fr/",      # entire tabular API domain
-    "https://static.data.gouv.fr/resources/", # large static resource files
+    "https://www.data.gouv.fr/api/",  # REST API paths (bulk data)
+    "https://tabular-api.data.gouv.fr/",  # entire tabular API domain
+    "https://static.data.gouv.fr/resources/",  # large static resource files
 )
 _MAX_RESPONSE_CHARS = 50_000
 
@@ -32,7 +29,10 @@ async def http_fetch(url: str) -> str:  # noqa: D401
         response.raise_for_status()
     text = response.text
     if len(text) > _MAX_RESPONSE_CHARS:
-        text = text[:_MAX_RESPONSE_CHARS] + f"\n[truncated — response exceeded {_MAX_RESPONSE_CHARS} chars]"
+        text = (
+            text[:_MAX_RESPONSE_CHARS]
+            + f"\n[truncated — response exceeded {_MAX_RESPONSE_CHARS} chars]"
+        )
     return text
 
 
@@ -42,6 +42,7 @@ def web_search_toolset() -> list:
         from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
     except ImportError as exc:
         from agent_eval.experiment.agent.builder import CapabilityUnavailableError
+
         raise CapabilityUnavailableError(
             "Capability 'web_search' requires the 'ddgs' package. "
             "Install it with: pip install 'datagouv-ai-evaluation[web]'"

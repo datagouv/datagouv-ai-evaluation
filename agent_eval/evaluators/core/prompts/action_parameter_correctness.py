@@ -11,7 +11,6 @@ Design notes:
 - An action instance may originate from an MCP tool call, a CLI command, or a step inside
   a code-execution block; its `args` carry the parameters extracted for that action.
 """
-from __future__ import annotations
 
 from typing import Any
 
@@ -87,17 +86,28 @@ def build_user_message(
         arg_strs = []
         for arg in args:
             if arg.get("strict_value") is not None:
-                arg_strs.append(f"  {arg['name']}: EXACT VALUE = {arg['strict_value']!r}")
+                arg_strs.append(
+                    f"  {arg['name']}: EXACT VALUE = {arg['strict_value']!r}"
+                )
             elif arg.get("criteria"):
                 arg_strs.append(f"  {arg['name']}: CRITERIA = {arg['criteria']}")
             else:
                 arg_strs.append(f"  {arg['name']}: (any value accepted)")
-        lines.append(f"[{i}] " + (("\n" + "\n".join(arg_strs)) if arg_strs else "(no constraints)"))
+        lines.append(
+            f"[{i}] "
+            + (("\n" + "\n".join(arg_strs)) if arg_strs else "(no constraints)")
+        )
 
     lines.append("\nACTUAL actions performed by the agent:")
     for i, call in enumerate(actual_calls):
         args = call.get("arguments") or {}
-        arg_strs = [f"  {k}: {v!r}" for k, v in args.items()] if isinstance(args, dict) else [f"  {args}"]
-        lines.append(f"[{i}] " + (("\n" + "\n".join(arg_strs)) if arg_strs else "(no arguments)"))
+        arg_strs = (
+            [f"  {k}: {v!r}" for k, v in args.items()]
+            if isinstance(args, dict)
+            else [f"  {args}"]
+        )
+        lines.append(
+            f"[{i}] " + (("\n" + "\n".join(arg_strs)) if arg_strs else "(no arguments)")
+        )
 
     return "\n".join(lines)

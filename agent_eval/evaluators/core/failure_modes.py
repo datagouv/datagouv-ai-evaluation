@@ -3,7 +3,6 @@ LLM-as-a-judge for failure mode detection.
 Uses pydantic-ai Agent — model-agnostic. No Opik imports.
 Silently skips if failure_modes.yml is empty or not yet populated.
 """
-from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -48,7 +47,9 @@ async def judge_failure_modes(
     scores: {mode_name: 0|1} — 1 means the failure mode is present (higher = worse).
     Returns empty FailureModeOutput if no failure modes are defined yet.
     """
-    failure_modes = prompts.load_failure_modes(failure_modes_path or _DEFAULT_FAILURE_MODES_PATH)
+    failure_modes = prompts.load_failure_modes(
+        failure_modes_path or _DEFAULT_FAILURE_MODES_PATH
+    )
     if not failure_modes:
         return FailureModeOutput()
 
@@ -72,8 +73,12 @@ async def judge_failure_modes(
         present = set(result.output.present)
         explanations = result.output.explanations
         return FailureModeOutput(
-            scores={fm["name"]: 1 if fm["name"] in present else 0 for fm in failure_modes},
-            explanations={fm["name"]: explanations.get(fm["name"], "") for fm in failure_modes},
+            scores={
+                fm["name"]: 1 if fm["name"] in present else 0 for fm in failure_modes
+            },
+            explanations={
+                fm["name"]: explanations.get(fm["name"], "") for fm in failure_modes
+            },
         )
     except Exception as exc:
         logger.warning("Failure mode judge failed: %s", exc)

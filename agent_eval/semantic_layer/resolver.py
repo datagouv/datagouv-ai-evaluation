@@ -10,9 +10,7 @@ Each tool/command/endpoint in actions.yml is an object {name, criteria?}.
 criteria (optional): natural-language condition for LLM-based disambiguation.
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +28,14 @@ def _version_matches(spec: str, version: str) -> bool:
         return False
 
 
+@dataclass
+class ActionEntry:
+    """A concrete tool/command/endpoint entry with optional disambiguation criteria."""
+
+    name: str
+    criteria: str | None = None
+
+
 def _normalize_entry(item: Any) -> ActionEntry | None:
     """Normalize a tools/commands/endpoints list item to ActionEntry.
     Accepts strings ('tool_name') and dicts ({name: 'tool_name', criteria: '...'}).
@@ -41,13 +47,6 @@ def _normalize_entry(item: Any) -> ActionEntry | None:
         name = item.get("name", "")
         return ActionEntry(name=name, criteria=item.get("criteria")) if name else None
     return None
-
-
-@dataclass
-class ActionEntry:
-    """A concrete tool/command/endpoint entry with optional disambiguation criteria."""
-    name: str
-    criteria: str | None = None
 
 
 class SemanticLayerResolver:
@@ -67,8 +66,12 @@ class SemanticLayerResolver:
         actions_path = semantic_layer_dir / "actions.yml"
         args_path = semantic_layer_dir / "action_args.yml"
 
-        actions_raw: list[dict[str, Any]] = yaml.safe_load(actions_path.read_text(encoding="utf-8")) or []
-        args_raw: dict[str, Any] = yaml.safe_load(args_path.read_text(encoding="utf-8")) or {}
+        actions_raw: list[dict[str, Any]] = (
+            yaml.safe_load(actions_path.read_text(encoding="utf-8")) or []
+        )
+        args_raw: dict[str, Any] = (
+            yaml.safe_load(args_path.read_text(encoding="utf-8")) or {}
+        )
 
         # Build action index: {action_name: {framework: [{version, entries: [ActionEntry]}]}}
         self._actions: dict[str, dict[str, list[dict[str, Any]]]] = {}
@@ -100,7 +103,9 @@ class SemanticLayerResolver:
                     arg_entry.setdefault(fw, []).append(fw_def)
             self._args[arg_name] = arg_entry
 
-    def resolve_tool_entries(self, action: str, framework: str, version: str) -> list[ActionEntry]:
+    def resolve_tool_entries(
+        self, action: str, framework: str, version: str
+    ) -> list[ActionEntry]:
         """
         Return all ActionEntry objects (name + optional criteria) for
         (action, framework, version). Returns [] if no match.
@@ -108,14 +113,24 @@ class SemanticLayerResolver:
         fw_entries = self._actions.get(action, {}).get(framework)
         if not fw_entries:
             return []
-        key = "tools" if framework == "mcp" else "commands" if framework == "cli" else "endpoints"
+        key = (
+            "tools"
+            if framework == "mcp"
+            else "commands"
+            if framework == "cli"
+            else "endpoints"
+        )
         for entry in fw_entries:
             if _version_matches(str(entry.get("version", "")), version):
                 raw_items = entry.get(key) or []
-                return [e for item in raw_items if (e := _normalize_entry(item)) is not None]
+                return [
+                    e for item in raw_items if (e := _normalize_entry(item)) is not None
+                ]
         return []
 
-    def resolve_tool_names(self, action: str, framework: str, version: str) -> list[str]:
+    def resolve_tool_names(
+        self, action: str, framework: str, version: str
+    ) -> list[str]:
         """
         Return concrete tool/command names for (action, framework, version).
         Returns [] if the action is unknown or has no entry for this framework/version.

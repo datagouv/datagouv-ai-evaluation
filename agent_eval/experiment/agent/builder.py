@@ -1,7 +1,6 @@
 """
 Dispatcher: routes capability names to their toolset factory functions.
 """
-from __future__ import annotations
 
 import logging
 from typing import Any
@@ -36,21 +35,26 @@ def build_toolsets(
     for cap in capabilities:
         if cap == "mcp":
             from agent_eval.experiment.agent.mcp import mcp_toolset
+
             url = run_config.get("mcp_server_url")
             if url:
                 toolsets.append(mcp_toolset(url, timeout=30))
         elif cap == "web_search":
             from agent_eval.experiment.agent.web_search import web_search_toolset
+
             toolsets.extend(web_search_toolset())
         elif cap == "code":
             from agent_eval.experiment.agent.code import code_toolset
+
             if docker_session is None:
                 raise CapabilityUnavailableError(
                     "code capability requires a DockerSession — "
                     "pass docker_session= to build_toolsets()"
                 )
             has_datagouv_cli = "datagouv-cli" in capabilities
-            toolsets.extend(code_toolset(docker_session, has_datagouv_cli=has_datagouv_cli))
+            toolsets.extend(
+                code_toolset(docker_session, has_datagouv_cli=has_datagouv_cli)
+            )
         elif cap == "datagouv-cli":
             pass  # handled by code capability via has_datagouv_cli flag
         elif cap == "skills":
