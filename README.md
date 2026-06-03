@@ -466,7 +466,9 @@ This framework is an early-stage MVP. The following limitations should be unders
 
 **No cross-dataset or temporal evaluation.** Tasks are fixed to specific datasets and resources as they existed when the tasks were authored. The catalog evolves; a task that was well-defined when authored may become ambiguous or unanswerable if the referenced resource is updated, deprecated, or replaced.
 
-### Releases and versioning
+---
+
+## Releases and versioning
 
 The release process uses the [`tag_version.sh`](tag_version.sh) script to create git tags, GitHub releases and update [CHANGELOG.md](CHANGELOG.md) automatically. Package version numbers are automatically derived from git tags using [setuptools_scm](https://github.com/pypa/setuptools_scm), so no manual version updates are needed in `pyproject.toml`.
 
@@ -488,6 +490,8 @@ The script automatically:
 - Identifies breaking changes (commits with `!:` in the subject)
 - Creates a git tag and pushes it to the remote repository
 - Creates a GitHub release with the changelog content
+
+---
 
 ## License
 
