@@ -393,6 +393,26 @@ uv run ruff check --fix && uv run ruff format
 
 ---
 
+### Pre-commit Hooks
+
+This repository uses a [pre-commit](https://pre-commit.com/) hook which lints and formats code before each commit. Installing the pre-commit hook is strongly recommended so the checks run automatically.
+
+**Install pre-commit hooks:**
+
+```shell
+uv run pre-commit install
+```
+
+The pre-commit hook automatically:
+
+- Check YAML syntax
+- Fix end-of-file issues
+- Remove trailing whitespace
+- Check for large files
+- Run Ruff linting and formatting
+
+---
+
 ### Contributing
 
 **Adding a task**
