@@ -12,8 +12,6 @@ Everything below the mapper sees the same instances, so usage/params/trajectory 
 and the mapper LLM pass runs only once.
 """
 
-from __future__ import annotations
-
 import asyncio
 from pathlib import Path
 
@@ -129,16 +127,26 @@ class ActionMetric(base_metric.BaseMetric):
             )
             instances = mapper_output.instances
             params_minimal, params_optimal, trajectory = await asyncio.gather(
-                judge_action_params(self._judge_model, user_prompt, instances, required_minimal),
-                judge_action_params(self._judge_model, user_prompt, instances, required_optimal),
-                compute_trajectory_adherence(self._judge_model, action_chain, instances, user_prompt),
+                judge_action_params(
+                    self._judge_model, user_prompt, instances, required_minimal
+                ),
+                judge_action_params(
+                    self._judge_model, user_prompt, instances, required_optimal
+                ),
+                compute_trajectory_adherence(
+                    self._judge_model, action_chain, instances, user_prompt
+                ),
             )
             return mapper_output, params_minimal, params_optimal, trajectory
 
-        mapper_output, params_minimal, params_optimal, trajectory = asyncio.run(_run_all())
+        mapper_output, params_minimal, params_optimal, trajectory = asyncio.run(
+            _run_all()
+        )
 
         instances = mapper_output.instances
-        basics = compute_action_usage_basics(instances, required_minimal, required_optimal)
+        basics = compute_action_usage_basics(
+            instances, required_minimal, required_optimal
+        )
         matched_minimal = params_minimal.matched_actions
         matched_optimal = params_optimal.matched_actions
         rates = compute_action_usage_rates(basics, matched_minimal, matched_optimal)
@@ -167,47 +175,118 @@ class ActionMetric(base_metric.BaseMetric):
                 name="action_mapped_fraction",
                 value=mapper_output.mapped_fraction,
                 reason=f"Mapped {n_mapped} of {len(mapper_output.call_mappings)} tool calls to semantic actions",
-                metadata={"call_mappings": call_mappings_serializable, "counts": counts},
+                metadata={
+                    "call_mappings": call_mappings_serializable,
+                    "counts": counts,
+                },
             ),
-            score_result.ScoreResult(name="total_actions_made", value=float(basics.total_actions_made)),
-            score_result.ScoreResult(name="unique_action_names", value=float(basics.unique_action_names)),
-            score_result.ScoreResult(name="action_success_rate", value=basics.action_success_rate),
+            score_result.ScoreResult(
+                name="total_actions_made", value=float(basics.total_actions_made)
+            ),
+            score_result.ScoreResult(
+                name="unique_action_names", value=float(basics.unique_action_names)
+            ),
+            score_result.ScoreResult(
+                name="action_success_rate", value=basics.action_success_rate
+            ),
             *[
-                score_result.ScoreResult(name=f"calls_{cat}", value=float(counts.get(cat, 0)))
+                score_result.ScoreResult(
+                    name=f"calls_{cat}", value=float(counts.get(cat, 0))
+                )
                 for cat in _CATEGORY_SCORES
             ],
             # ── GT requirement sizes ─────────────────────────────────────────
-            score_result.ScoreResult(name="required_action_types_minimal", value=float(basics.required_action_types_minimal)),
-            score_result.ScoreResult(name="required_action_types_optimal", value=float(basics.required_action_types_optimal)),
-            score_result.ScoreResult(name="required_actions_minimal", value=float(basics.required_actions_minimal)),
-            score_result.ScoreResult(name="required_actions_optimal", value=float(basics.required_actions_optimal)),
-            # ── matched counts (TP) ──────────────────────────────────────────
-            score_result.ScoreResult(name="matched_action_types_minimal", value=float(basics.matched_action_types_minimal)),
-            score_result.ScoreResult(name="matched_action_types_optimal", value=float(basics.matched_action_types_optimal)),
             score_result.ScoreResult(
-                name="matched_actions_minimal", value=float(matched_minimal),
-                reason=reason_minimal,
-                metadata={"action_to_required_matches": _serialize_matches(params_minimal)},
+                name="required_action_types_minimal",
+                value=float(basics.required_action_types_minimal),
             ),
             score_result.ScoreResult(
-                name="matched_actions_optimal", value=float(matched_optimal),
+                name="required_action_types_optimal",
+                value=float(basics.required_action_types_optimal),
+            ),
+            score_result.ScoreResult(
+                name="required_actions_minimal",
+                value=float(basics.required_actions_minimal),
+            ),
+            score_result.ScoreResult(
+                name="required_actions_optimal",
+                value=float(basics.required_actions_optimal),
+            ),
+            # ── matched counts (TP) ──────────────────────────────────────────
+            score_result.ScoreResult(
+                name="matched_action_types_minimal",
+                value=float(basics.matched_action_types_minimal),
+            ),
+            score_result.ScoreResult(
+                name="matched_action_types_optimal",
+                value=float(basics.matched_action_types_optimal),
+            ),
+            score_result.ScoreResult(
+                name="matched_actions_minimal",
+                value=float(matched_minimal),
+                reason=reason_minimal,
+                metadata={
+                    "action_to_required_matches": _serialize_matches(params_minimal)
+                },
+            ),
+            score_result.ScoreResult(
+                name="matched_actions_optimal",
+                value=float(matched_optimal),
                 reason=reason_optimal,
-                metadata={"action_to_required_matches": _serialize_matches(params_optimal)},
+                metadata={
+                    "action_to_required_matches": _serialize_matches(params_optimal)
+                },
             ),
             # ── rates — action-type level ────────────────────────────────────
-            score_result.ScoreResult(name="precision_action_type_minimal", value=rates.precision_action_type_minimal),
-            score_result.ScoreResult(name="precision_action_type_optimal", value=rates.precision_action_type_optimal),
-            score_result.ScoreResult(name="recall_action_type_minimal", value=rates.recall_action_type_minimal),
-            score_result.ScoreResult(name="recall_action_type_optimal", value=rates.recall_action_type_optimal),
-            score_result.ScoreResult(name="f1_action_type_minimal", value=rates.f1_action_type_minimal),
-            score_result.ScoreResult(name="f1_action_type_optimal", value=rates.f1_action_type_optimal),
+            score_result.ScoreResult(
+                name="precision_action_type_minimal",
+                value=rates.precision_action_type_minimal,
+            ),
+            score_result.ScoreResult(
+                name="precision_action_type_optimal",
+                value=rates.precision_action_type_optimal,
+            ),
+            score_result.ScoreResult(
+                name="recall_action_type_minimal",
+                value=rates.recall_action_type_minimal,
+            ),
+            score_result.ScoreResult(
+                name="recall_action_type_optimal",
+                value=rates.recall_action_type_optimal,
+            ),
+            score_result.ScoreResult(
+                name="f1_action_type_minimal", value=rates.f1_action_type_minimal
+            ),
+            score_result.ScoreResult(
+                name="f1_action_type_optimal", value=rates.f1_action_type_optimal
+            ),
             # ── rates — action-instance level ────────────────────────────────
-            score_result.ScoreResult(name="precision_action_minimal", value=rates.precision_action_minimal, reason=reason_minimal),
-            score_result.ScoreResult(name="precision_action_optimal", value=rates.precision_action_optimal, reason=reason_optimal),
-            score_result.ScoreResult(name="recall_action_minimal", value=rates.recall_action_minimal, reason=reason_minimal),
-            score_result.ScoreResult(name="recall_action_optimal", value=rates.recall_action_optimal, reason=reason_optimal),
-            score_result.ScoreResult(name="f1_action_minimal", value=rates.f1_action_minimal),
-            score_result.ScoreResult(name="f1_action_optimal", value=rates.f1_action_optimal),
+            score_result.ScoreResult(
+                name="precision_action_minimal",
+                value=rates.precision_action_minimal,
+                reason=reason_minimal,
+            ),
+            score_result.ScoreResult(
+                name="precision_action_optimal",
+                value=rates.precision_action_optimal,
+                reason=reason_optimal,
+            ),
+            score_result.ScoreResult(
+                name="recall_action_minimal",
+                value=rates.recall_action_minimal,
+                reason=reason_minimal,
+            ),
+            score_result.ScoreResult(
+                name="recall_action_optimal",
+                value=rates.recall_action_optimal,
+                reason=reason_optimal,
+            ),
+            score_result.ScoreResult(
+                name="f1_action_minimal", value=rates.f1_action_minimal
+            ),
+            score_result.ScoreResult(
+                name="f1_action_optimal", value=rates.f1_action_optimal
+            ),
             # ── trajectory ───────────────────────────────────────────────────
             score_result.ScoreResult(
                 name="trajectory_adherence_minimal",

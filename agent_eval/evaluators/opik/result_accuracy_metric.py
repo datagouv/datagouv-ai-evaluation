@@ -3,8 +3,6 @@ Opik wrapper for result accuracy evaluation.
 Calls core/result_accuracy.py via asyncio.run().
 """
 
-from __future__ import annotations
-
 import asyncio
 from pathlib import Path
 from opik.evaluation.metrics import base_metric, score_result

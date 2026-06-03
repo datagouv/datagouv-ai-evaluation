@@ -62,8 +62,11 @@ class CompatibleOpenAIChatModel(OpenAIChatModel):
                 content = getattr(choice.message, "content", None)
                 if isinstance(content, list):
                     choice.message.content = "".join(
-                        (part.get("text", "") if isinstance(part, dict)
-                         else getattr(part, "text", "") or "")
+                        (
+                            part.get("text", "")
+                            if isinstance(part, dict)
+                            else getattr(part, "text", "") or ""
+                        )
                         for part in content
                     )
                 # Mistral also sometimes omits the type field on tool_calls,

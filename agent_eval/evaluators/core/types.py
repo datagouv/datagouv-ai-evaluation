@@ -2,7 +2,6 @@
 Central dataclass for all per-task metric results.
 Kept in a dedicated module to avoid circular imports between core modules.
 """
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 
@@ -15,21 +14,21 @@ class TaskEvalResult:
     total_tool_calls: int = 0
 
     # ── Action usage — actual counts (precision denominators) ────────────────
-    total_actions_made: int = 0                # len(mapped action instances)
-    unique_action_names: int = 0               # |set(mapped action names)|
-    action_success_rate: float = 0.0           # instances whose source call did not error
-    action_mapped_fraction: float = 0.0        # fraction of calls mapped to >= 1 action
+    total_actions_made: int = 0  # len(mapped action instances)
+    unique_action_names: int = 0  # |set(mapped action names)|
+    action_success_rate: float = 0.0  # instances whose source call did not error
+    action_mapped_fraction: float = 0.0  # fraction of calls mapped to >= 1 action
 
     # ── Action usage — GT requirement sizes (recall denominators) ────────────
-    required_action_types_minimal: int = 0     # |set(GT names)|
+    required_action_types_minimal: int = 0  # |set(GT names)|
     required_action_types_optimal: int = 0
-    required_actions_minimal: int = 0          # len(GT list)
+    required_actions_minimal: int = 0  # len(GT list)
     required_actions_optimal: int = 0
 
     # ── Action usage — matched counts (TP numerators) ────────────────────────
-    matched_action_types_minimal: int = 0      # |set(GT names) ∩ set(actual names)|
+    matched_action_types_minimal: int = 0  # |set(GT names) ∩ set(actual names)|
     matched_action_types_optimal: int = 0
-    matched_actions_minimal: int = 0           # LLM-judged correct actions
+    matched_actions_minimal: int = 0  # LLM-judged correct actions
     matched_actions_optimal: int = 0
 
     # ── Action usage — rates (action-type level, unique names) ──────────────

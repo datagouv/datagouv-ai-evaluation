@@ -6,14 +6,15 @@ That file will be populated by the user; this module loads it and builds the jud
 Each failure mode gets a score of 1 (present = failure) or 0 (absent = no failure).
 Higher total across tasks = more failures = worse.
 """
-from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-_DEFAULT_FAILURE_MODES_PATH = Path(__file__).parent.parent / "config" / "failure_modes.yml"
+_DEFAULT_FAILURE_MODES_PATH = (
+    Path(__file__).parent.parent / "config" / "failure_modes.yml"
+)
 
 
 def load_failure_modes(path: Path | None = None) -> list[dict[str, str]]:

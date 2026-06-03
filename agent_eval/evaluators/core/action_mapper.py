@@ -13,7 +13,6 @@ LLM judge for:
 This module is the single engine feeding the action_* metrics (usage, params,
 trajectory). The flat ordered `instances` list is the semantic source of truth.
 """
-from __future__ import annotations
 
 import asyncio
 import re
@@ -78,19 +77,21 @@ def _is_error(result: Any) -> bool:
 @dataclass
 class ActionInstance:
     """One semantic action derived from a literal tool call."""
-    action: str                       # semantic action name, e.g. "search.datasets"
-    args: dict                        # arguments for this action instance
+
+    action: str  # semantic action name, e.g. "search.datasets"
+    args: dict  # arguments for this action instance
     source_tool_call_id: str
     source_tool_name: str
     capability_category: str
     confidence: float = 1.0
-    errored: bool = False             # inherited from the source call's result
+    errored: bool = False  # inherited from the source call's result
     reason: str = ""
 
 
 @dataclass
 class CallMapping:
     """How one literal tool call maps to semantic action instances."""
+
     tool_call_id: str
     tool_name: str
     capability_category: str
@@ -198,7 +199,9 @@ def _classify_deterministic(
     args = call.get("arguments") or {}
     errored = _is_error(call.get("result"))
 
-    def cm(category: str, *, actions=None, criteria_pending=None, confidence=1.0, reason="") -> CallMapping:
+    def cm(
+        category: str, *, actions=None, criteria_pending=None, confidence=1.0, reason=""
+    ) -> CallMapping:
         return CallMapping(
             tool_call_id=call_id,
             tool_name=name,
@@ -210,8 +213,14 @@ def _classify_deterministic(
             reason=reason,
         )
 
-    def instances(action_names, category, confidence, reason, inst_args=None) -> list[ActionInstance]:
-        resolved_args = inst_args if inst_args is not None else (args if isinstance(args, dict) else {})
+    def instances(
+        action_names, category, confidence, reason, inst_args=None
+    ) -> list[ActionInstance]:
+        resolved_args = (
+            inst_args
+            if inst_args is not None
+            else (args if isinstance(args, dict) else {})
+        )
         return [
             ActionInstance(
                 action=a,
@@ -233,7 +242,12 @@ def _classify_deterministic(
         pending = [(a, c) for a, c in candidates if c is not None]
         return cm(
             CATEGORY_MCP_TOOL,
-            actions=instances(confirmed, CATEGORY_MCP_TOOL, 1.0, "MCP tool name in available_tool_names"),
+            actions=instances(
+                confirmed,
+                CATEGORY_MCP_TOOL,
+                1.0,
+                "MCP tool name in available_tool_names",
+            ),
             criteria_pending=pending,
             confidence=1.0,
             reason="MCP tool name in available_tool_names",
@@ -243,7 +257,11 @@ def _classify_deterministic(
     if name == "duckduckgo_search":
         return cm(CATEGORY_WEB_SEARCH, confidence=1.0, reason="DuckDuckGo search tool")
     if name == "http_fetch":
-        return cm(CATEGORY_WEB_PAGE_FETCH, confidence=1.0, reason="HTTP page fetch tool (web_search capability)")
+        return cm(
+            CATEGORY_WEB_PAGE_FETCH,
+            confidence=1.0,
+            reason="HTTP page fetch tool (web_search capability)",
+        )
 
     # ── execute_cli ──────────────────────────────────────────────────────────────
     if name == "execute_cli":
@@ -253,24 +271,48 @@ def _classify_deterministic(
             return cm(
                 CATEGORY_DATAGOUV_CLI,
                 actions=instances(
-                    semantic, CATEGORY_DATAGOUV_CLI, 0.9,
-                    f"datagouv CLI: {command[:80]}", inst_args={"command": command},
+                    semantic,
+                    CATEGORY_DATAGOUV_CLI,
+                    0.9,
+                    f"datagouv CLI: {command[:80]}",
+                    inst_args={"command": command},
                 ),
                 confidence=0.9 if semantic else 0.7,
-                reason=f"datagouv CLI: {command[:80]}" + (f" → {semantic}" if semantic else " (LLM will refine)"),
+                reason=f"datagouv CLI: {command[:80]}"
+                + (f" → {semantic}" if semantic else " (LLM will refine)"),
             )
         if _contains_datagouv_api_url(command):
-            return cm(CATEGORY_DATAGOUV_API_HTTP, confidence=0.8, reason="CLI command contains data.gouv.fr API URL")
-        return cm(CATEGORY_UNCLASSIFIED, confidence=0.5, reason="CLI command — not datagouv prefix")
+            return cm(
+                CATEGORY_DATAGOUV_API_HTTP,
+                confidence=0.8,
+                reason="CLI command contains data.gouv.fr API URL",
+            )
+        return cm(
+            CATEGORY_UNCLASSIFIED,
+            confidence=0.5,
+            reason="CLI command — not datagouv prefix",
+        )
 
     # ── execute_python: quick heuristics ─────────────────────────────────────────
     if name == "execute_python":
         code = args.get("code", "") if isinstance(args, dict) else str(args)
         if _contains_datagouv_api_url(code):
-            return cm(CATEGORY_DATAGOUV_API_HTTP, confidence=0.8, reason="Python code contains data.gouv.fr API URL — LLM will refine")
+            return cm(
+                CATEGORY_DATAGOUV_API_HTTP,
+                confidence=0.8,
+                reason="Python code contains data.gouv.fr API URL — LLM will refine",
+            )
         if not _contains_external_url(code):
-            return cm(CATEGORY_PYTHON_LOCAL, confidence=0.7, reason="Python code with no external URLs — local analysis")
-        return cm(CATEGORY_FILE_LOAD_EXTERNAL, confidence=0.7, reason="Python code fetches external (non-datagouv) URL")
+            return cm(
+                CATEGORY_PYTHON_LOCAL,
+                confidence=0.7,
+                reason="Python code with no external URLs — local analysis",
+            )
+        return cm(
+            CATEGORY_FILE_LOAD_EXTERNAL,
+            confidence=0.7,
+            reason="Python code fetches external (non-datagouv) URL",
+        )
 
     # ── Unknown tool — needs LLM ─────────────────────────────────────────────────
     return cm(CATEGORY_UNCLASSIFIED, confidence=0.0, reason="Tool name not recognised")
@@ -305,7 +347,11 @@ async def _judge_call(
     """
     prompt_template = _PROMPT_PATH.read_text(encoding="utf-8")
     args = call.get("arguments") or {}
-    code = args.get("code", args.get("command", "")) if isinstance(args, dict) else str(args)
+    code = (
+        args.get("code", args.get("command", ""))
+        if isinstance(args, dict)
+        else str(args)
+    )
     output = str(call.get("result") or "")[:500]
     actions_list = "\n".join(f"- {a}" for a in semantic_actions)
 
@@ -315,12 +361,15 @@ async def _judge_call(
         lines += [f"- `{a}` applies if: {c}" for a, c in criteria_pending]
         criteria_section = "\n".join(lines)
 
-    prompt = prompt_template.format(
-        semantic_actions_list=actions_list,
-        tool_name=call.get("name", ""),
-        code=code[:1000],
-        output=output,
-    ) + criteria_section
+    prompt = (
+        prompt_template.format(
+            semantic_actions_list=actions_list,
+            tool_name=call.get("name", ""),
+            code=code[:1000],
+            output=output,
+        )
+        + criteria_section
+    )
 
     agent = Agent(model=model, output_type=_JudgeResponse)
     try:
@@ -380,7 +429,9 @@ async def map_action_calls(
     async def _judge(idx: int) -> tuple[int, list[tuple[str, dict]], float, str]:
         cm = output.call_mappings[idx]
         confirmed, confidence, reason = await _judge_call(
-            judge_model, actual_tool_calls[idx], all_semantic_actions,
+            judge_model,
+            actual_tool_calls[idx],
+            all_semantic_actions,
             criteria_pending=cm.criteria_pending or None,
         )
         return idx, confirmed, confidence, reason
@@ -397,17 +448,23 @@ async def map_action_calls(
             if action in existing:
                 continue
             # MCP args are authoritative & structured; code/CLI args come from the judge.
-            inst_args = call_args if (is_mcp and isinstance(call_args, dict)) else (judge_args or {})
-            cm.actions.append(ActionInstance(
-                action=action,
-                args=inst_args,
-                source_tool_call_id=cm.tool_call_id,
-                source_tool_name=cm.tool_name,
-                capability_category=cm.capability_category,
-                confidence=confidence,
-                errored=cm.errored,
-                reason=reason,
-            ))
+            inst_args = (
+                call_args
+                if (is_mcp and isinstance(call_args, dict))
+                else (judge_args or {})
+            )
+            cm.actions.append(
+                ActionInstance(
+                    action=action,
+                    args=inst_args,
+                    source_tool_call_id=cm.tool_call_id,
+                    source_tool_name=cm.tool_name,
+                    capability_category=cm.capability_category,
+                    confidence=confidence,
+                    errored=cm.errored,
+                    reason=reason,
+                )
+            )
             existing.add(action)
         cm.confidence = max(cm.confidence, confidence)
         cm.reason = reason

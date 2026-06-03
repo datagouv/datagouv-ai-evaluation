@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 from pathlib import Path
 
 import yaml
 
 _SKILLS_DIR = Path(__file__).parents[2] / "benchmark" / "config" / "skills"
-_VERSIONS_FILE = Path(__file__).parents[2] / "benchmark" / "config" / "skills_versions.yml"
+_VERSIONS_FILE = (
+    Path(__file__).parents[2] / "benchmark" / "config" / "skills_versions.yml"
+)
 
 
 def load_skills_prompt(version: str | None = None) -> str:

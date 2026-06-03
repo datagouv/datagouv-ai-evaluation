@@ -7,7 +7,6 @@ Covers:
 - compute_action_usage_basics / rates: the one-call → many-actions case (e.g. several
   searches inside one execute_python), verified via hand-built ActionInstances.
 """
-from __future__ import annotations
 
 import asyncio
 from pathlib import Path
@@ -24,7 +23,9 @@ from agent_eval.evaluators.core.action_usage import (
 )
 from agent_eval.tasks.loader import RequiredAction, RequiredActionArg
 
-_SEMANTIC_LAYER_DIR = Path(__file__).parents[1] / "agent_eval" / "semantic_layer" / "config"
+_SEMANTIC_LAYER_DIR = (
+    Path(__file__).parents[1] / "agent_eval" / "semantic_layer" / "config"
+)
 
 
 def _inst(action: str, *, errored: bool = False, src: str = "c1") -> ActionInstance:
@@ -50,7 +51,9 @@ def test_deterministic_cross_capability_mapping():
         {
             "tool_call_id": "c2",
             "name": "execute_cli",
-            "arguments": {"command": "datagouv dataset display 536c47d9a3a72933d8d1b3b2"},
+            "arguments": {
+                "command": "datagouv dataset display 536c47d9a3a72933d8d1b3b2"
+            },
             "result": "Error: not found",
         },
     ]
@@ -87,7 +90,9 @@ def test_usage_basics_one_call_many_actions():
     ]
     required_minimal = [
         RequiredAction(name="search.datasets", args=[RequiredActionArg(name="query")]),
-        RequiredAction(name="get.dataset.info", args=[RequiredActionArg(name="dataset_id")]),
+        RequiredAction(
+            name="get.dataset.info", args=[RequiredActionArg(name="dataset_id")]
+        ),
     ]
 
     basics = compute_action_usage_basics(instances, required_minimal, required_minimal)
@@ -100,11 +105,15 @@ def test_usage_basics_one_call_many_actions():
     assert basics.action_success_rate == 1.0
 
     # Suppose the params judge validated both required actions (matched_actions == 2)
-    rates = compute_action_usage_rates(basics, matched_actions_minimal=2, matched_actions_optimal=2)
-    assert rates.precision_action_type_minimal == 1.0           # 2 matched types / 2 unique names
-    assert rates.recall_action_type_minimal == 1.0              # 2 / 2 required types
-    assert rates.precision_action_minimal == round(2 / 3, 6)    # 2 matched / 3 instances
-    assert rates.recall_action_minimal == 1.0                   # 2 / 2 required actions
+    rates = compute_action_usage_rates(
+        basics, matched_actions_minimal=2, matched_actions_optimal=2
+    )
+    assert (
+        rates.precision_action_type_minimal == 1.0
+    )  # 2 matched types / 2 unique names
+    assert rates.recall_action_type_minimal == 1.0  # 2 / 2 required types
+    assert rates.precision_action_minimal == round(2 / 3, 6)  # 2 matched / 3 instances
+    assert rates.recall_action_minimal == 1.0  # 2 / 2 required actions
     assert rates.f1_action_minimal == round(2 * (2 / 3) * 1.0 / ((2 / 3) + 1.0), 6)
 
 
