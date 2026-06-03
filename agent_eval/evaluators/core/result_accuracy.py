@@ -3,7 +3,6 @@ LLM-as-a-judge for result accuracy (criteria validation).
 Uses pydantic-ai Agent so any supported provider/model can be used.
 No Opik imports.
 """
-from __future__ import annotations
 
 import asyncio
 import logging
@@ -67,7 +66,9 @@ async def judge_criterion(
         )
     except Exception as exc:
         logger.warning("Criterion judge failed for %r: %s", criterion[:60], exc)
-        return CriterionResult(criterion=criterion, validated=False, explanation=f"Judge error: {exc}")
+        return CriterionResult(
+            criterion=criterion, validated=False, explanation=f"Judge error: {exc}"
+        )
 
 
 async def compute_result_accuracy(

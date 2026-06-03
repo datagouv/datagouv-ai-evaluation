@@ -2,7 +2,6 @@
 Efficiency metrics: latency and token usage, plus derived efficiency scores.
 Pure arithmetic — no LLM calls, no Opik imports.
 """
-from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -13,9 +12,9 @@ from agent_eval.evaluators.core._math import safe_div
 class EfficiencyMetrics:
     latency_ms: float
     token_usage: int
-    token_efficiency_minimal: float   # result_accuracy_minimal / (token_usage / 1000)
+    token_efficiency_minimal: float  # result_accuracy_minimal / (token_usage / 1000)
     token_efficiency_optimal: float
-    time_efficiency_minimal: float    # result_accuracy_minimal / (latency_ms / 60_000)
+    time_efficiency_minimal: float  # result_accuracy_minimal / (latency_ms / 60_000)
     time_efficiency_optimal: float
 
 

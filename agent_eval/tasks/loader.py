@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import hashlib
 import uuid
 from dataclasses import dataclass, field
@@ -143,7 +141,9 @@ def _build_action_chain(raw: dict) -> ActionChain:
     """Build ActionChain from a plain action_chain dict."""
     minimal_level = _parse_action_chain_level(raw.get("minimal"))
     raw_optimal = raw.get("optimal")
-    if raw_optimal and (raw_optimal.get("required_actions") or raw_optimal.get("chain")):
+    if raw_optimal and (
+        raw_optimal.get("required_actions") or raw_optimal.get("chain")
+    ):
         # optimal = minimal actions + optimal additional actions
         optimal_level = _parse_action_chain_level(
             raw_optimal, extra_actions=minimal_level.required_actions
@@ -177,7 +177,12 @@ def _parse_resource_check(raw: dict) -> ResourceCheck:
 
 def _parse_resource(raw: dict) -> Resource:
     checks = [_parse_resource_check(c) for c in (raw.get("checks") or [])]
-    return Resource(type=raw["type"], id=str(raw["id"]), dataset_id=raw.get("dataset_id"), checks=checks)
+    return Resource(
+        type=raw["type"],
+        id=str(raw["id"]),
+        dataset_id=raw.get("dataset_id"),
+        checks=checks,
+    )
 
 
 def _parse_task_meta(raw: dict) -> TaskMeta:

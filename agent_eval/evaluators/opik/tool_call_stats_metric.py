@@ -6,8 +6,6 @@ semantic actions they map to. `total_tool_calls` is the tool-call efficiency sig
 the same task done in fewer literal calls is cheaper. Deterministic, no LLM.
 """
 
-from __future__ import annotations
-
 from opik.evaluation.metrics import base_metric, score_result
 
 

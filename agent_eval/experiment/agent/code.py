@@ -23,8 +23,6 @@ Container security flags:
   --network bridge        internet access; host loopback isolated
 """
 
-from __future__ import annotations
-
 import atexit
 import asyncio
 import ast
@@ -32,6 +30,7 @@ import signal
 import subprocess
 import uuid
 from pathlib import Path
+from typing import Self
 
 _DOCKER_IMAGE_BASE = "datagouv-agent:base"
 _DOCKER_IMAGE_CLI = "datagouv-agent:datagouv-cli"
@@ -169,7 +168,7 @@ class DockerSession:
             subprocess.run(["docker", "rm", "-f", self._name], capture_output=True)
             self._started = False
 
-    def __enter__(self) -> DockerSession:
+    def __enter__(self) -> Self:
         self.start()
         return self
 

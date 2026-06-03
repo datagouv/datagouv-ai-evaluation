@@ -8,7 +8,6 @@ semantic baseline (RequiredAction lists). Two granularities:
 
 Pure Python — no LLM calls, no Opik imports.
 """
-from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -20,16 +19,16 @@ from agent_eval.tasks.loader import RequiredAction
 @dataclass
 class ActionUsageBasics:
     # actual action counts (precision denominators)
-    total_actions_made: int                     # len(mapped instances)
-    unique_action_names: int                    # |set(mapped action names)|
-    action_success_rate: float                  # instances whose source call did not error
+    total_actions_made: int  # len(mapped instances)
+    unique_action_names: int  # |set(mapped action names)|
+    action_success_rate: float  # instances whose source call did not error
     # GT requirement sizes (recall denominators)
-    required_action_types_minimal: int          # |set(GT names)|, minimal level
+    required_action_types_minimal: int  # |set(GT names)|, minimal level
     required_action_types_optimal: int
-    required_actions_minimal: int               # len(GT list), minimal level
+    required_actions_minimal: int  # len(GT list), minimal level
     required_actions_optimal: int
     # matched type counts (TP numerators, set-based)
-    matched_action_types_minimal: int           # |set(GT names) ∩ set(actual names)|
+    matched_action_types_minimal: int  # |set(GT names) ∩ set(actual names)|
     matched_action_types_optimal: int
 
 
@@ -87,10 +86,18 @@ def compute_action_usage_rates(
     Derive rate metrics from basics + LLM-judged matched_actions counts.
     All rates are [0, 1] and guard against division by zero (return 0.0).
     """
-    p_type_min = safe_div(basics.matched_action_types_minimal, basics.unique_action_names)
-    p_type_opt = safe_div(basics.matched_action_types_optimal, basics.unique_action_names)
-    r_type_min = safe_div(basics.matched_action_types_minimal, basics.required_action_types_minimal)
-    r_type_opt = safe_div(basics.matched_action_types_optimal, basics.required_action_types_optimal)
+    p_type_min = safe_div(
+        basics.matched_action_types_minimal, basics.unique_action_names
+    )
+    p_type_opt = safe_div(
+        basics.matched_action_types_optimal, basics.unique_action_names
+    )
+    r_type_min = safe_div(
+        basics.matched_action_types_minimal, basics.required_action_types_minimal
+    )
+    r_type_opt = safe_div(
+        basics.matched_action_types_optimal, basics.required_action_types_optimal
+    )
 
     p_act_min = safe_div(matched_actions_minimal, basics.total_actions_made)
     p_act_opt = safe_div(matched_actions_optimal, basics.total_actions_made)
