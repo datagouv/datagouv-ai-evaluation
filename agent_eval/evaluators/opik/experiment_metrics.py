@@ -3,7 +3,6 @@ Experiment-level metric aggregation for Opik.
 Replaces the old experiment_metrics.py (micro confusion matrix approach).
 Aggregates task-level ScoreResults into totals and averages per the metrics spec.
 """
-from __future__ import annotations
 
 from collections import defaultdict
 from typing import List
@@ -110,26 +109,32 @@ def compute_experiment_metrics(
 
     for name in sorted(_TOTAL_METRICS):
         if name in totals:
-            output.append(score_result.ScoreResult(
-                name=f"total_{name}" if not name.startswith("total_") else name,
-                value=totals[name],
-                reason=f"Sum across {n} tasks",
-            ))
+            output.append(
+                score_result.ScoreResult(
+                    name=f"total_{name}" if not name.startswith("total_") else name,
+                    value=totals[name],
+                    reason=f"Sum across {n} tasks",
+                )
+            )
 
     for name in sorted(_AVG_METRICS):
         count = avg_counts.get(name, 0)
         if count > 0:
-            output.append(score_result.ScoreResult(
-                name=f"avg_{name}",
-                value=avg_sums[name] / count,
-                reason=f"Mean across {count} tasks",
-            ))
+            output.append(
+                score_result.ScoreResult(
+                    name=f"avg_{name}",
+                    value=avg_sums[name] / count,
+                    reason=f"Mean across {count} tasks",
+                )
+            )
 
     for name in sorted(failure_mode_names):
-        output.append(score_result.ScoreResult(
-            name=f"failure_{name}",
-            value=failure_mode_totals[name],
-            reason=f"Tasks with this failure mode (out of {n})",
-        ))
+        output.append(
+            score_result.ScoreResult(
+                name=f"failure_{name}",
+                value=failure_mode_totals[name],
+                reason=f"Tasks with this failure mode (out of {n})",
+            )
+        )
 
     return output

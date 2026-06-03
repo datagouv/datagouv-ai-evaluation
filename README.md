@@ -380,6 +380,19 @@ tests/
 
 ---
 
+### Code Linting and Formatting
+
+This project follows PEP 8 style guidelines using [Ruff](https://astral.sh/ruff/) for linting and formatting.
+
+**Either running these commands manually or [installing the pre-commit hook](#-pre-commit-hooks) is required before submitting contributions.**
+
+```shell
+# Lint and format code
+uv run ruff check --fix && uv run ruff format
+```
+
+---
+
 ### Contributing
 
 **Adding a task**

@@ -4,7 +4,6 @@ Evaluated independently for minimal and optimal levels.
 Operates on the mapped semantic action sequence (from action_mapper), not literal
 tool calls. Uses pydantic-ai Agent — model-agnostic. No Opik imports.
 """
-from __future__ import annotations
 
 import asyncio
 import logging

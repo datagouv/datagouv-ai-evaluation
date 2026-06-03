@@ -8,7 +8,13 @@ import opik
 from dotenv import load_dotenv
 from opik import opik_context
 from pydantic_ai import Agent
-from pydantic_ai.messages import ModelResponse, TextPart, ThinkingPart, ToolCallPart, ToolReturnPart
+from pydantic_ai.messages import (
+    ModelResponse,
+    TextPart,
+    ThinkingPart,
+    ToolCallPart,
+    ToolReturnPart,
+)
 from pydantic_ai.tools import Tool as PydanticTool
 
 from agent_eval.utils import get_model_config_object
@@ -155,7 +161,11 @@ def _log_tool_span(name: str, arguments: Any, result: Any) -> None:
     """One Opik child span per tool call, nested under the parent LLM-turn span."""
     opik_context.update_current_span(
         name=name,
-        input={"arguments": arguments if isinstance(arguments, dict) else {"raw": str(arguments)}},
+        input={
+            "arguments": arguments
+            if isinstance(arguments, dict)
+            else {"raw": str(arguments)}
+        },
         output={"result": str(result)[:4000] if result is not None else None},
     )
 
@@ -199,7 +209,11 @@ def _log_llm_turn(
         try:
             args = tc.args_as_dict()
         except Exception:
-            args = {"raw": tc.args_as_json_str() if hasattr(tc, "args_as_json_str") else str(tc.args)}
+            args = {
+                "raw": tc.args_as_json_str()
+                if hasattr(tc, "args_as_json_str")
+                else str(tc.args)
+            }
         _log_tool_span(
             tc.tool_name,
             args,

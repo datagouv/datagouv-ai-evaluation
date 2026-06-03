@@ -30,7 +30,9 @@ def setup_tracing() -> None:
     if _INITIALIZED:
         return
 
-    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:5173/api/v1/private/otel")
+    endpoint = os.getenv(
+        "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:5173/api/v1/private/otel"
+    )
     _check_endpoint(endpoint)
 
     # Intentionally NOT calling logfire.instrument_pydantic_ai(): it instruments

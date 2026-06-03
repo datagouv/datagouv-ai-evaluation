@@ -2,7 +2,6 @@
 Builds flat run_config dicts from RunConfiguration objects.
 Fetches MCP tools once per unique server URL (deduplicates network calls).
 """
-from __future__ import annotations
 
 import asyncio
 from typing import Any
@@ -12,14 +11,18 @@ from agent_eval.experiment.mcp_tools_getter import get_mcp_tools
 from agent_eval.experiment.agent.skills import load_skills_prompt
 
 
-async def _fetch_tools_by_url(urls: list[str]) -> dict[str, tuple[str, list[str], list[dict]]]:
+async def _fetch_tools_by_url(
+    urls: list[str],
+) -> dict[str, tuple[str, list[str], list[dict]]]:
     """Fetch MCP tools for all unique server URLs concurrently."""
     unique_urls = list(dict.fromkeys(u for u in urls if u))  # preserve order, dedup
 
     async def _fetch(url: str):
         return url, await get_mcp_tools(url)
 
-    results = await asyncio.gather(*[_fetch(url) for url in unique_urls], return_exceptions=True)
+    results = await asyncio.gather(
+        *[_fetch(url) for url in unique_urls], return_exceptions=True
+    )
 
     tools_by_url: dict[str, tuple[str, list[str], list[dict]]] = {}
     for res in results:
@@ -53,19 +56,21 @@ async def build_all_run_configs(
         if "skills" in (rc.capabilities or []):
             skills_content = load_skills_prompt()
 
-        run_configs.append({
-            "evaluation_type": rc.evaluation_type,
-            "capabilities": rc.capabilities,
-            "mcp_version": rc.mcp_version,
-            "mcp_server_url": url,
-            "model": rc.model,
-            "system_prompt_name": rc.system_prompt_name,
-            "system_prompt": rc.system_prompt,
-            "metrics": rc.metrics,
-            "mcp_tools_description": description,
-            "mcp_tool_names": names,
-            "mcp_tools_schema": schema,
-            "skills_content": skills_content,
-        })
+        run_configs.append(
+            {
+                "evaluation_type": rc.evaluation_type,
+                "capabilities": rc.capabilities,
+                "mcp_version": rc.mcp_version,
+                "mcp_server_url": url,
+                "model": rc.model,
+                "system_prompt_name": rc.system_prompt_name,
+                "system_prompt": rc.system_prompt,
+                "metrics": rc.metrics,
+                "mcp_tools_description": description,
+                "mcp_tool_names": names,
+                "mcp_tools_schema": schema,
+                "skills_content": skills_content,
+            }
+        )
 
     return run_configs

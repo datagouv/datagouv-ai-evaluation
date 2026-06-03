@@ -15,13 +15,10 @@ Design:
   parameters are correct.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
@@ -56,9 +53,9 @@ class _ActionJudgment(BaseModel):
 @dataclass
 class ActionMatch:
     action: str
-    gt_index: int               # index in the required-actions group
-    actual_index: int           # index in the actual-instances group
-    correct: bool               # LLM says listed params are correct
+    gt_index: int  # index in the required-actions group
+    actual_index: int  # index in the actual-instances group
+    correct: bool  # LLM says listed params are correct
     explanation: str
     source_tool_call_id: str = ""
 

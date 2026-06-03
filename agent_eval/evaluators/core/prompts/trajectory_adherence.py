@@ -7,7 +7,6 @@ since the expected sequence may slightly differ between levels.
 Operates on the mapped semantic action sequence, not literal tool calls: one
 literal tool call may expand to several actions (e.g. searches inside a script).
 """
-from __future__ import annotations
 
 from typing import Any
 

@@ -26,7 +26,7 @@ dependencies = [
 web = ["ddgs>=9.0"]
 
 [dependency-groups]
-dev = ["black>=26.1.0", "ruff>=0.15.4"]
+dev = ["ruff>=0.15.4"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

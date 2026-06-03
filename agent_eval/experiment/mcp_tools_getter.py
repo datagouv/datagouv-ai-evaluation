@@ -1,4 +1,3 @@
-import asyncio
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
@@ -53,4 +52,8 @@ def mcp_tools_to_schema_dicts(tools) -> list[dict]:
 async def get_mcp_tools(server_url: str) -> tuple[str, list[str], list[dict]]:
     """Returns (text_description, tool_names, schema_dicts)."""
     tools = await get_remote_tools(server_url)
-    return mcp_tools_to_text(tools), mcp_tools_to_names(tools), mcp_tools_to_schema_dicts(tools)
+    return (
+        mcp_tools_to_text(tools),
+        mcp_tools_to_names(tools),
+        mcp_tools_to_schema_dicts(tools),
+    )

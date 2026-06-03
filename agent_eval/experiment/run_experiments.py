@@ -11,8 +11,6 @@ Options:
     --nb-samples N           Limit number of tasks (for smoke tests)
 """
 
-from __future__ import annotations
-
 import argparse
 import asyncio
 import logging
@@ -103,7 +101,8 @@ def get_or_create_dataset(client: opik.Opik, tasks, project_name: str) -> opik.D
             "%s already exists but %d task(s) are missing. NOT inserting (it would "
             "re-version every item and re-trigger the compare fan-out). Bump "
             "DATASET_VERSION in run_experiments.py to pick up task changes cleanly.",
-            name, len(missing),
+            name,
+            len(missing),
         )
     else:
         logger.info("Dataset %s already up to date (%d items)", name, len(items))
