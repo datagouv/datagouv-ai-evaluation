@@ -12,9 +12,9 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
-from agent_eval.evaluators.core.result_accuracy import CriterionResult
-from agent_eval.evaluators.core.prompts import failure_modes as prompts
 from agent_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.evaluators.core.prompts import failure_modes as prompts
+from agent_eval.evaluators.core.result_accuracy import CriterionResult
 
 logger = logging.getLogger(__name__)
 

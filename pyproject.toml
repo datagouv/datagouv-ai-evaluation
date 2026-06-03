@@ -35,4 +35,8 @@ dev = ["ruff>=0.15.4"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
+[tool.ruff.lint]
+# Match CI: `ruff check --select I .` — default Ruff select does not include isort (I).
+extend-select = ["I"]
+
 [tool.setuptools_scm]
