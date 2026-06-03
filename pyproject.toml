@@ -30,3 +30,5 @@ dev = ["black>=26.1.0", "ruff>=0.15.4"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+log_cli = true
+log_cli_level = "INFO"
