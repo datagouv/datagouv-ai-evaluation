@@ -45,7 +45,7 @@ def web_search_toolset() -> list:
 
         raise CapabilityUnavailableError(
             "Capability 'web_search' requires the 'ddgs' package. "
-            "Install it with: pip install 'datagouv-ai-evaluation[web]'"
+            "Install it with: uv add ddgs  (or pip install ddgs)"
         ) from exc
 
     from pydantic_ai.tools import Tool
