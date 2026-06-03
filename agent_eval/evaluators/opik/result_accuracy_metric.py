@@ -5,6 +5,7 @@ Calls core/result_accuracy.py via asyncio.run().
 
 import asyncio
 from pathlib import Path
+
 from opik.evaluation.metrics import base_metric, score_result
 
 from agent_eval.evaluators.core.efficiency import compute_efficiency
@@ -12,12 +13,12 @@ from agent_eval.evaluators.core.failure_modes import (
     FailureModeOutput,
     judge_failure_modes,
 )
+from agent_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.evaluators.core.prompts.failure_modes import load_failure_modes
 from agent_eval.evaluators.core.result_accuracy import (
     CriterionResult,
     compute_result_accuracy,
 )
-from agent_eval.evaluators.core.prompts.failure_modes import load_failure_modes
-from agent_eval.evaluators.core.judge_model import JudgeModel
 from agent_eval.tasks.loader import EvaluationCriteria
 
 

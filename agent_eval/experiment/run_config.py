@@ -7,8 +7,8 @@ import asyncio
 from typing import Any
 
 from agent_eval.benchmark.loader import RunConfiguration
-from agent_eval.experiment.mcp_tools_getter import get_mcp_tools
 from agent_eval.experiment.agent.skills import load_skills_prompt
+from agent_eval.experiment.mcp_tools_getter import get_mcp_tools
 
 
 async def _fetch_tools_by_url(

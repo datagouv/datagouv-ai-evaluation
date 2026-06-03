@@ -26,8 +26,8 @@ from agent_eval.evaluators.core.action_usage import (
     compute_action_usage_basics,
     compute_action_usage_rates,
 )
-from agent_eval.evaluators.core.trajectory import compute_trajectory_adherence
 from agent_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.evaluators.core.trajectory import compute_trajectory_adherence
 from agent_eval.tasks.loader import (
     ActionChain,
     ActionChainLevel,

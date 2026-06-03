@@ -24,8 +24,8 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 
 from agent_eval.evaluators.core.action_mapper import ActionInstance
-from agent_eval.evaluators.core.prompts import action_parameter_correctness as prompts
 from agent_eval.evaluators.core.judge_model import JudgeModel
+from agent_eval.evaluators.core.prompts import action_parameter_correctness as prompts
 from agent_eval.tasks.loader import RequiredAction
 
 logger = logging.getLogger(__name__)

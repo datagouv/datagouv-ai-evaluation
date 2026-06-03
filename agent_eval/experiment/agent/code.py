@@ -23,9 +23,9 @@ Container security flags:
   --network bridge        internet access; host loopback isolated
 """
 
-import atexit
-import asyncio
 import ast
+import asyncio
+import atexit
 import signal
 import subprocess
 import uuid
@@ -289,6 +289,7 @@ def _check_docker_running() -> None:
 
 def _build_image(image: str, build_args: list[str]) -> None:
     import logging
+
     from agent_eval.experiment.agent.builder import CapabilityUnavailableError
 
     logger = logging.getLogger(__name__)

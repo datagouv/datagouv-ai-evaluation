@@ -12,9 +12,9 @@ import asyncio
 from pathlib import Path
 
 from agent_eval.evaluators.core.action_mapper import (
-    ActionInstance,
     CATEGORY_DATAGOUV_CLI,
     CATEGORY_MCP_TOOL,
+    ActionInstance,
     map_action_calls,
 )
 from agent_eval.evaluators.core.action_usage import (

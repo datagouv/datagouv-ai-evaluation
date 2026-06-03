@@ -1,11 +1,11 @@
 import logging
-import yaml
 from pathlib import Path
 
+import yaml
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from agent_eval.utils import CompatibleOpenAIChatModel
 from agent_eval._env import ENV_VALUES
+from agent_eval.utils import CompatibleOpenAIChatModel
 
 logger = logging.getLogger(__name__)
 

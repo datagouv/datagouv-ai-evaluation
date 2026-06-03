@@ -11,7 +11,7 @@ Pure Python — no LLM calls, no Opik imports.
 
 from dataclasses import dataclass
 
-from agent_eval.evaluators.core._math import safe_div, f1_score
+from agent_eval.evaluators.core._math import f1_score, safe_div
 from agent_eval.evaluators.core.action_mapper import ActionInstance
 from agent_eval.tasks.loader import RequiredAction
 

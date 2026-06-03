@@ -17,10 +17,10 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.tools import Tool as PydanticTool
 
-from agent_eval.utils import get_model_config_object
 from agent_eval.experiment.agent import build_toolsets
 from agent_eval.experiment.agent.builder import CapabilityUnavailableError
 from agent_eval.experiment.agent.code import check_and_create_session
+from agent_eval.utils import get_model_config_object
 
 load_dotenv(override=True)
 

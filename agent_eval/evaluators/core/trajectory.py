@@ -13,9 +13,9 @@ from pydantic import BaseModel, field_validator
 from pydantic_ai import Agent
 
 from agent_eval.evaluators.core.action_mapper import ActionInstance
+from agent_eval.evaluators.core.judge_model import JudgeModel
 from agent_eval.evaluators.core.prompts import trajectory_adherence as prompts
 from agent_eval.tasks.loader import ActionChain, ActionChainLevel
-from agent_eval.evaluators.core.judge_model import JudgeModel
 
 logger = logging.getLogger(__name__)
 
