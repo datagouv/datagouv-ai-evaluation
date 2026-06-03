@@ -380,7 +380,7 @@ tests/
 
 ---
 
-### Code Linting and Formatting
+## Code Linting and Formatting
 
 This project follows PEP 8 style guidelines using [Ruff](https://astral.sh/ruff/) for linting and formatting.
 
@@ -393,7 +393,7 @@ uv run ruff check --fix && uv run ruff format
 
 ---
 
-### Pre-commit Hooks
+## Pre-commit Hooks
 
 This repository uses a [pre-commit](https://pre-commit.com/) hook which lints and formats code before each commit. Installing the pre-commit hook is strongly recommended so the checks run automatically.
 
@@ -413,7 +413,7 @@ The pre-commit hook automatically:
 
 ---
 
-### Contributing
+## Contributing
 
 **Adding a task**
 
@@ -444,7 +444,7 @@ We welcome contributions! To keep the project stable and reviews manageable, ple
 
 ---
 
-## 4. Limitations
+## Limitations
 
 This framework is an early-stage MVP. The following limitations should be understood before interpreting results.
 
