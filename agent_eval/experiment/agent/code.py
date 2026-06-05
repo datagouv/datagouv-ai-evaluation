@@ -256,33 +256,40 @@ def code_toolset(session: DockerSession, has_datagouv_cli: bool = False) -> list
             )
         return await session.exec_async(["sh", "-c", command])
 
-    execute_cli.__doc__ = "\n".join(filter(None, [
-        "Run a shell command in the Docker sandbox (Linux, internet access).",
-        "",
-        "Before creating directories or files, use ls to verify the parent path exists.",
-        "Always quote paths that contain spaces: ls \"/tmp/my dir\" not ls /tmp/my dir.",
-        "Chain multiple commands with ; or && — do NOT use newlines as separators.",
-        "Use absolute paths (/tmp/…) as the working directory; avoid cd.",
-        "Only stdout is returned — stderr appears prefixed with [stderr].",
-        "Commands time out after 60 s; break long operations across calls.",
-        "For data processing, loops, or JSON parsing prefer execute_python instead.",
-        "",
-        "Available commands:",
-        "  datagouv <subcommands> <options>  — interact with data.gouv.fr catalogue" if has_datagouv_cli else None,
-        "  python/python3 <script>           — run a Python script file",
-        "  curl/wget <url>                   — HTTP request",
-        "  jq '<filter>' <file>              — JSON processing",
-        "  grep <pattern> <file>             — search file content",
-        "  find <dir> -name <pattern>        — locate files",
-        "  head/tail -n N <file>             — read start/end of large files",
-        "  sort / uniq / wc / cut / sed      — text processing",
-        "  tar -xf <archive> -C /tmp/        — extract .tar.gz archives",
-        "  unzip <file> -d /tmp/             — extract ZIP archives",
-        "  gunzip <file>                     — decompress .gz files",
-        "  ls / cat / cp / mv / mkdir / rm / rmdir / touch / echo / diff  — file operations",
-        "  pip/pip3 install <package>        — install a Python package",
-        "Files written within a task persist across calls (use /tmp/ as working dir).",
-    ]))
+    execute_cli.__doc__ = "\n".join(
+        filter(
+            None,
+            [
+                "Run a shell command in the Docker sandbox (Linux, internet access).",
+                "",
+                "Before creating directories or files, use ls to verify the parent path exists.",
+                'Always quote paths that contain spaces: ls "/tmp/my dir" not ls /tmp/my dir.',
+                "Chain multiple commands with ; or && — do NOT use newlines as separators.",
+                "Use absolute paths (/tmp/…) as the working directory; avoid cd.",
+                "Only stdout is returned — stderr appears prefixed with [stderr].",
+                "Commands time out after 60 s; break long operations across calls.",
+                "For data processing, loops, or JSON parsing prefer execute_python instead.",
+                "",
+                "Available commands:",
+                "  datagouv <subcommands> <options>  — interact with data.gouv.fr catalogue"
+                if has_datagouv_cli
+                else None,
+                "  python/python3 <script>           — run a Python script file",
+                "  curl/wget <url>                   — HTTP request",
+                "  jq '<filter>' <file>              — JSON processing",
+                "  grep <pattern> <file>             — search file content",
+                "  find <dir> -name <pattern>        — locate files",
+                "  head/tail -n N <file>             — read start/end of large files",
+                "  sort / uniq / wc / cut / sed      — text processing",
+                "  tar -xf <archive> -C /tmp/        — extract .tar.gz archives",
+                "  unzip <file> -d /tmp/             — extract ZIP archives",
+                "  gunzip <file>                     — decompress .gz files",
+                "  ls / cat / cp / mv / mkdir / rm / rmdir / touch / echo / diff  — file operations",
+                "  pip/pip3 install <package>        — install a Python package",
+                "Files written within a task persist across calls (use /tmp/ as working dir).",
+            ],
+        )
+    )
 
     return [Tool(execute_python), Tool(execute_cli)]
 
