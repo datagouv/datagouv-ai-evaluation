@@ -71,7 +71,7 @@ def get_scoring_metrics(metrics: list[str], judge_model_path: Path) -> list:
 # rows from prior submissions. Within one version, re-runs reuse the same dataset and
 # skip insert (no version churn). If you forget to bump after editing a task, the
 # dataset stays on the old content — see the warning logged in get_or_create_dataset.
-DATASET_VERSION = "v2"
+DATASET_VERSION = "v3"
 
 DATASET_NAME_BASE = "datagouv_tasks"
 
