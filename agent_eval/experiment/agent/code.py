@@ -50,8 +50,10 @@ _DOCKER_RUN_FLAGS = [
 ]
 
 _CLI_PREFIXES_BASE = (
+    # Python execution
     "python ",
     "python3 ",
+    # File operations
     "ls",
     "mkdir ",
     "rm ",
@@ -61,8 +63,27 @@ _CLI_PREFIXES_BASE = (
     "cat ",
     "echo ",
     "touch ",
+    "find ",
+    "head ",
+    "tail ",
+    "diff ",
+    # Text search & processing
+    "grep ",
+    "sort ",
+    "uniq ",
+    "wc ",
+    "cut ",
+    "sed ",
+    # Archives
+    "tar ",
+    "unzip ",
+    "gunzip ",
+    # HTTP
     "curl ",
     "wget ",
+    # JSON
+    "jq ",
+    # Package management
     "pip ",
     "pip3 ",
 )
@@ -214,52 +235,54 @@ def code_toolset(session: DockerSession, has_datagouv_cli: bool = False) -> list
     )
 
     async def execute_python(code: str) -> str:
-        """Execute Python code in a Docker sandbox with internet access.
+        """Execute Python code in a Docker sandbox (Linux, internet access).
         Pre-installed packages: requests, httpx, pandas.
         Files written to /tmp/ persist for the lifetime of this task (reusable across calls).
-        IMPORTANT: only stdout is returned — always use print() to output results.
-        The last expression is NOT auto-printed; end scripts with print(result)."""
+
+        Usage notes:
+        - Only stdout is returned — always use print() to output results.
+        - The last expression is NOT auto-printed; end scripts with print(result).
+        - For complex data work (CSV, JSON, pandas), prefer this over execute_cli.
+        - Commands time out after 60 s; split long operations across calls if needed.
+        - Use absolute paths (/tmp/file.csv); avoid os.chdir()."""
         return await session.exec_async(["python", "-c", _ensure_print(code)])
 
-    if has_datagouv_cli:
+    async def execute_cli(command: str) -> str:
+        stripped = command.strip()
+        if not any(stripped.startswith(p) for p in allowed_prefixes):
+            raise ValueError(
+                f"Command not in whitelist. Got: {command!r}. "
+                f"Allowed prefixes: {', '.join(p.strip() for p in allowed_prefixes)}"
+            )
+        return await session.exec_async(["sh", "-c", command])
 
-        async def execute_cli(command: str) -> str:
-            """Run a shell command in the Docker sandbox.
-            Available commands:
-              datagouv --help                    - explore all datagouv cli available commands
-              datagouv dataset display <id>      — dataset metadata
-              datagouv resource display <id>     — resource metadata
-              datagouv resource download <id> <path>  — download resource file
-              datagouv organization display <id> — organization metadata
-              python/python3 <script>            — run a Python script file
-              curl <url>                         — HTTP request
-              ls / cat / cp / mv / mkdir / rm    — file operations
-              pip install <package>              — install a Python package
-            Files written within a task persist across calls (use /tmp/ as working dir)."""
-            stripped = command.strip()
-            if not any(stripped.startswith(p) for p in allowed_prefixes):
-                raise ValueError(
-                    f"Command not in whitelist. Got: {command!r}. "
-                    f"Allowed prefixes: {', '.join(p.strip() for p in allowed_prefixes)}"
-                )
-            return await session.exec_async(["sh", "-c", command])
-    else:
-
-        async def execute_cli(command: str) -> str:
-            """Run a shell command in the Docker sandbox.
-            Available commands:
-              python/python3 <script>  — run a Python script file
-              curl <url>               — HTTP request
-              ls / cat / cp / mv / mkdir / rm  — file operations
-              pip install <package>    — install a Python package
-            Files written within a task persist across calls (use /tmp/ as working dir)."""
-            stripped = command.strip()
-            if not any(stripped.startswith(p) for p in allowed_prefixes):
-                raise ValueError(
-                    f"Command not in whitelist. Got: {command!r}. "
-                    f"Allowed prefixes: {', '.join(p.strip() for p in allowed_prefixes)}"
-                )
-            return await session.exec_async(["sh", "-c", command])
+    execute_cli.__doc__ = "\n".join(filter(None, [
+        "Run a shell command in the Docker sandbox (Linux, internet access).",
+        "",
+        "Before creating directories or files, use ls to verify the parent path exists.",
+        "Always quote paths that contain spaces: ls \"/tmp/my dir\" not ls /tmp/my dir.",
+        "Chain multiple commands with ; or && — do NOT use newlines as separators.",
+        "Use absolute paths (/tmp/…) as the working directory; avoid cd.",
+        "Only stdout is returned — stderr appears prefixed with [stderr].",
+        "Commands time out after 60 s; break long operations across calls.",
+        "For data processing, loops, or JSON parsing prefer execute_python instead.",
+        "",
+        "Available commands:",
+        "  datagouv <subcommands> <options>  — interact with data.gouv.fr catalogue" if has_datagouv_cli else None,
+        "  python/python3 <script>           — run a Python script file",
+        "  curl/wget <url>                   — HTTP request",
+        "  jq '<filter>' <file>              — JSON processing",
+        "  grep <pattern> <file>             — search file content",
+        "  find <dir> -name <pattern>        — locate files",
+        "  head/tail -n N <file>             — read start/end of large files",
+        "  sort / uniq / wc / cut / sed      — text processing",
+        "  tar -xf <archive> -C /tmp/        — extract .tar.gz archives",
+        "  unzip <file> -d /tmp/             — extract ZIP archives",
+        "  gunzip <file>                     — decompress .gz files",
+        "  ls / cat / cp / mv / mkdir / rm / rmdir / touch / echo / diff  — file operations",
+        "  pip/pip3 install <package>        — install a Python package",
+        "Files written within a task persist across calls (use /tmp/ as working dir).",
+    ]))
 
     return [Tool(execute_python), Tool(execute_cli)]
 
