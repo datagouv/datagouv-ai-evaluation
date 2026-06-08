@@ -37,8 +37,9 @@ asyncio_mode = "auto"
 log_cli = true
 log_cli_level = "INFO"
 
-[tool.ruff.lint]
+[tool.ruff]
+extend-exclude = ["opik"]
 # Match CI: `ruff check --select I .` — default Ruff select does not include isort (I).
-extend-select = ["I"]
+lint = { extend-select = ["I"] }
 
 [tool.setuptools_scm]
