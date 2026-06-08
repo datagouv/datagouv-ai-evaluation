@@ -18,10 +18,10 @@ import os
 import sys
 from pathlib import Path
 
-import opik
 from dotenv import load_dotenv
 from opik.evaluation import evaluate
 
+import opik
 from agent_eval.benchmark.loader import build_run_configurations
 from agent_eval.evaluators.opik.action_metric import ActionMetric
 from agent_eval.evaluators.opik.experiment_metrics import compute_experiment_metrics
