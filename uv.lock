@@ -630,8 +630,7 @@ wheels = [
 
 [[package]]
 name = "datagouv-ai-evaluation"
-version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "asyncio" },
     { name = "ddgs" },
