@@ -25,7 +25,7 @@ evaluation_criteria:
         Agent identifies the API "API Data ES".
     - criteria: >
         Agent identifies the dataset "Base Sirene des entreprises et de leurs établissements (SIREN, SIRET)"
-        or the equivalent API "API Sirene open data" as an alternative, but not specific about sports establishments.
+        or the equivalent API "API Recherche d’Entreprises" as an alternative, but not specific about sports establishments.
   optimal:
     - criteria: >
         Agent explains why "Recensement des équipements sportifs, espaces et sites de pratiques"
@@ -39,7 +39,7 @@ evaluation_criteria:
         Agent explains that "Base Sirene des entreprises et de leurs établissements (SIREN, SIRET)"
         requires filtering on code NAF and the file requires more work to parse (zip).
     - criteria: >
-        Agent explains that "API Sirene open data" requires to better understand the documentation
+        Agent explains that "API Recherche d’Entreprises" requires to better understand the documentation
         to filter on NAF which is less straightforward.
     - criteria: >
         Agent queries "Recensement des équipements sportifs, espaces et sites de pratiques"
