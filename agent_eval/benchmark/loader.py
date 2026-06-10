@@ -109,7 +109,7 @@ def load_models(path: Path) -> list[dict[str, str]]:
                         "name": entry["name"],
                         "provider": provider_block["provider"],
                         "provider_base_url": provider_block["provider_base_url"],
-                        "provider_token": provider_block["provider_token"],
+                        "provider_api_key": provider_block["provider_api_key"],
                     }
                 )
     return models
