@@ -18,14 +18,14 @@ class JudgeModel(CompatibleOpenAIChatModel):
 
         model_name = raw["name"]
         provider_base_url = raw["provider_base_url"]
-        provider_token = ENV_VALUES.get(raw["provider_token"])
-        if not provider_token:
+        api_key = ENV_VALUES.get(raw["provider_api_key"])
+        if not api_key:
             raise ValueError(
-                f"Please set the API token in environment variable {raw['provider_token']} "
+                f"Please set the API key in environment variable {raw['provider_api_key']} "
                 f"for provider: {raw['provider']}"
             )
 
         super().__init__(
             model_name,
-            provider=OpenAIProvider(base_url=provider_base_url, api_key=provider_token),
+            provider=OpenAIProvider(base_url=provider_base_url, api_key=api_key),
         )
