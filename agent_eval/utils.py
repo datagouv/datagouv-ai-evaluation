@@ -83,20 +83,20 @@ def get_model_config_object(model_config: dict) -> CompatibleOpenAIChatModel:
     Takes model_config dict that must contains :
     - name : str, model_name,
     - provider_base_url : str, api url to send request to
-    - provider_token : str, name of the environment variable in .env where the token is stored
+    - provider_api_key : str, name of the environment variable in .env where the API key is stored
     - provider : str, name of the provider (for logging purpose)
     """
     # TODO: create a model_config class to validate parsing for judge (judge_model.py) and task models (benchmark/loader.py)
     model_name = model_config["name"]
     provider_base_url = model_config["provider_base_url"]
-    provider_token = ENV_VALUES.get(model_config["provider_token"])
-    if not provider_token:
+    api_key = ENV_VALUES.get(model_config["provider_api_key"])
+    if not api_key:
         raise ValueError(
-            f"Please set the API token in environment variable {model_config['provider_token']} "
+            f"Please set the API key in environment variable {model_config['provider_api_key']} "
             f"for provider: {model_config['provider']}"
         )
 
     return CompatibleOpenAIChatModel(
         model_name,
-        provider=OpenAIProvider(base_url=provider_base_url, api_key=provider_token),
+        provider=OpenAIProvider(base_url=provider_base_url, api_key=api_key),
     )
