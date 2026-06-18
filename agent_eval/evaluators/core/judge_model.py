@@ -2,10 +2,9 @@ import logging
 from pathlib import Path
 
 import yaml
-from pydantic_ai.providers.openai import OpenAIProvider
 
 from agent_eval._env import ENV_VALUES
-from agent_eval.utils import CompatibleOpenAIChatModel
+from agent_eval.utils import CompatibleOpenAIChatModel, make_openai_provider
 
 logger = logging.getLogger(__name__)
 
@@ -27,5 +26,5 @@ class JudgeModel(CompatibleOpenAIChatModel):
 
         super().__init__(
             model_name,
-            provider=OpenAIProvider(base_url=provider_base_url, api_key=api_key),
+            provider=make_openai_provider(provider_base_url, api_key),
         )
