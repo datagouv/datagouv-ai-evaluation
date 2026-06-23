@@ -3,22 +3,28 @@ models:
     provider_base_url: "https://api.mistral.ai/v1"
     provider_api_key: "MISTRAL_API_KEY"
     entries:
-      - name: "mistral-small-latest"
-        active: False
+      - name: "mistral-small-2603"
+        active: True
         tags: ["small"]
-      - name: "mistral-medium-latest"
+      - name: "mistral-medium-3-5"
         active: True
         tags: ["medium"]
+      - name: "mistral-large-2512"
+        active: True
+        tags: ["large"]
   - provider: openai
     provider_base_url: "https://api.openai.com/v1"
     provider_api_key: "OPENAI_API_KEY"
     entries:
-      - name: "gpt-4o-mini"
+      - name: "gpt-5.4-nano-2026-03-17"
         active: False
         tags: ["small"]
-      - name: "gpt-4o"
+      - name: "gpt-5.4-mini-2026-03-17"
         active: False
         tags: ["medium"]
+      - name: "gpt-5.4-2026-03-05"
+        active: False
+        tags: ["large"]
   - provider: albert
     provider_base_url: "https://albert.api.etalab.gouv.fr/v1"
     provider_api_key: "ALBERT_API_KEY"
@@ -26,3 +32,12 @@ models:
       - name: "openai/gpt-oss-120b"
         active: False
         tags: ["medium"]
+      - name: "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
+        active: False
+        tags: ["small"]
+      - name: "mistralai/Ministral-3-8B-Instruct-2512"
+        active: False
+        tags: ["small"] # too small, to avoid for this eval
+      - name: "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+        active: False
+        tags: ["medium", "code"]
