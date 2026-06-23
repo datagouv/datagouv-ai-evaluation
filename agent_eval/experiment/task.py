@@ -4,7 +4,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+import opik
 from dotenv import load_dotenv
+from opik import opik_context
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
     ModelResponse,
@@ -15,12 +17,10 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.tools import Tool as PydanticTool
 
-import opik
 from agent_eval.experiment.agent import build_toolsets
 from agent_eval.experiment.agent.builder import CapabilityUnavailableError
 from agent_eval.experiment.agent.code import check_and_create_session
 from agent_eval.utils import get_model_config_object
-from opik import opik_context
 
 load_dotenv(override=True)
 

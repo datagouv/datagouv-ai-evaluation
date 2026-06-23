@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import httpx
 from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -12,6 +13,18 @@ logger = logging.getLogger(__name__)
 # Waits in seconds between retries when the provider returns 429.
 # First wait >= 65s so the 10 req/min window is guaranteed to reset.
 _RATE_LIMIT_BACKOFF = [65, 70, 80, 90, 120]
+
+# Hard cap on how long a single LLM request may block. Without this, a stalled
+# connection can hang the entire evaluation for 10+ minutes before the SDK retries.
+_HTTP_TIMEOUT = httpx.Timeout(120.0, connect=10.0)
+
+
+def make_openai_provider(base_url: str, api_key: str) -> OpenAIProvider:
+    return OpenAIProvider(
+        base_url=base_url,
+        api_key=api_key,
+        http_client=httpx.AsyncClient(timeout=_HTTP_TIMEOUT),
+    )
 
 
 class CompatibleOpenAIChatModel(OpenAIChatModel):
@@ -98,5 +111,5 @@ def get_model_config_object(model_config: dict) -> CompatibleOpenAIChatModel:
 
     return CompatibleOpenAIChatModel(
         model_name,
-        provider=OpenAIProvider(base_url=provider_base_url, api_key=api_key),
+        provider=make_openai_provider(provider_base_url, api_key),
     )
